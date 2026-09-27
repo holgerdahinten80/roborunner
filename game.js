@@ -79,60 +79,90 @@
       name: "DAEMMERUNG",
       sky: ["#141d3d", "#33406f", "#8c5a76", "#d98a5a"],
       stars: { count: 26, alpha: 0.55, tilt: 0.1 },
-      orb: { x: 700, y: 300, r: 46, color: "#ffd9a0", glow: ["rgba(255,214,150,0.95)", "rgba(255,160,96,0.35)", "rgba(255,130,80,0)"] },
+      orb: {
+        x: 700, y: 300, r: 48,
+        lit: "#fff3d2", base: "#ff9a4a", dark: "#4e2a55",
+        glow: ["rgba(255,216,150,0.95)", "rgba(255,140,110,0.35)", "rgba(255,120,90,0)"],
+        bands: ["rgba(255,238,186,0.34)", "rgba(168,86,150,0.3)", "rgba(255,172,112,0.24)"],
+        ring: null
+      },
       layers: [
         { kind: "hill", baseY: 380, amp: 150, color: "#3a2f5c", period: 900, speed: 0.08 },
         { kind: "hill", baseY: 412, amp: 96, color: "#2b2447", period: 620, speed: 0.16 }
       ],
-      ground: { fill: "#1a1f2e", edge: "#46e0c0", dash: "rgba(120,150,180,0.35)" },
+      ground: { fill: "#1c1a2d", edge: "#ffb45c", dash: "rgba(180,160,215,0.32)" },
       ambient: null
     },
     {
       name: "WUESTE",
       sky: ["#2b1f45", "#7d4a5e", "#d9844a", "#f2cd84"],
       stars: { count: 12, alpha: 0.3, tilt: 0.08 },
-      orb: { x: 250, y: 210, r: 60, color: "#ffe3a0", glow: ["rgba(255,226,160,0.9)", "rgba(255,170,90,0.3)", "rgba(255,150,70,0)"] },
+      orb: {
+        x: 250, y: 210, r: 62,
+        lit: "#fff8dd", base: "#ffc46a", dark: "#6d3f26",
+        glow: ["rgba(255,242,200,0.9)", "rgba(230,164,96,0.32)", "rgba(255,150,70,0)"],
+        bands: ["rgba(255,244,206,0.4)", "rgba(206,132,74,0.32)", "rgba(255,222,164,0.26)"],
+        ring: { tilt: 0.34, w: 1, color: "rgba(255,238,196,0.6)", color2: "rgba(228,166,104,0.34)" }
+      },
       layers: [
         { kind: "dune", baseY: 392, amp: 92, color: "#6b4630", period: 1200, speed: 0.07 },
         { kind: "dune", baseY: 420, amp: 62, color: "#4a3021", period: 820, speed: 0.14 }
       ],
-      ground: { fill: "#2c2219", edge: "#ffb45c", dash: "rgba(200,160,110,0.35)" },
+      ground: { fill: "#31251a", edge: "#ffcf7a", dash: "rgba(220,185,135,0.35)" },
       ambient: null
     },
     {
       name: "NACHTSTADT",
       sky: ["#04060d", "#0a1124", "#152146", "#283a63"],
       stars: { count: 64, alpha: 0.85, tilt: 0.12 },
-      orb: { x: 770, y: 130, r: 32, color: "#e8f0ff", glow: ["rgba(220,235,255,0.75)", "rgba(150,190,255,0.22)", "rgba(120,160,255,0)"] },
+      orb: {
+        x: 770, y: 132, r: 40,
+        lit: "#eaf6ff", base: "#4f7fd0", dark: "#0e1836",
+        glow: ["rgba(206,230,255,0.8)", "rgba(120,170,255,0.28)", "rgba(120,160,255,0)"],
+        bands: ["rgba(196,224,255,0.3)", "rgba(96,184,220,0.28)", "rgba(146,124,224,0.26)"],
+        ring: null
+      },
       layers: [
         { kind: "city", baseY: 400, amp: 120, color: "#131b30", period: 260, speed: 0.09 },
         { kind: "city", baseY: 428, amp: 88, color: "#0b1120", period: 210, speed: 0.18 }
       ],
-      ground: { fill: "#101625", edge: "#7fb0ff", dash: "rgba(140,170,220,0.35)" },
+      ground: { fill: "#111a30", edge: "#8fc0ff", dash: "rgba(150,180,230,0.32)" },
       ambient: null
     },
     {
       name: "EISFELD",
       sky: ["#0c2237", "#215173", "#6aa3c6", "#cfeaf7"],
       stars: { count: 22, alpha: 0.45, tilt: 0.1 },
-      orb: { x: 180, y: 150, r: 38, color: "#f2fbff", glow: ["rgba(240,250,255,0.8)", "rgba(180,220,255,0.28)", "rgba(150,200,255,0)"] },
+      orb: {
+        x: 180, y: 152, r: 44,
+        lit: "#ffffff", base: "#9fd8f0", dark: "#2c5a7c",
+        glow: ["rgba(232,250,255,0.85)", "rgba(178,216,246,0.3)", "rgba(150,200,255,0)"],
+        bands: ["rgba(232,250,255,0.42)", "rgba(146,208,238,0.32)", "rgba(200,236,255,0.28)"],
+        ring: { tilt: 0.5, w: 0.8, color: "rgba(236,252,255,0.5)", color2: "rgba(160,212,242,0.3)" }
+      },
       layers: [
         { kind: "peak", baseY: 386, amp: 168, color: "#5b7f9c", period: 460, speed: 0.08 },
         { kind: "peak", baseY: 416, amp: 112, color: "#3d5f7c", period: 330, speed: 0.17 }
       ],
-      ground: { fill: "#15212e", edge: "#c9ecff", dash: "rgba(190,225,245,0.4)" },
+      ground: { fill: "#182635", edge: "#cdefff", dash: "rgba(205,235,250,0.4)" },
       ambient: "snow"
     },
     {
       name: "VULKAN",
       sky: ["#080409", "#26090f", "#5e1a12", "#ab3a18"],
       stars: { count: 30, alpha: 0.6, tilt: 0.1 },
-      orb: { x: 520, y: 330, r: 56, color: "#ff8a3c", glow: ["rgba(255,150,70,0.85)", "rgba(255,90,40,0.3)", "rgba(200,50,20,0)"] },
+      orb: {
+        x: 520, y: 330, r: 58,
+        lit: "#ffe0a8", base: "#e84a20", dark: "#380c0a",
+        glow: ["rgba(255,166,84,0.9)", "rgba(255,84,36,0.32)", "rgba(200,50,20,0)"],
+        bands: ["rgba(255,186,96,0.36)", "rgba(118,18,14,0.42)", "rgba(255,124,52,0.26)"],
+        ring: null
+      },
       layers: [
         { kind: "volcano", baseY: 392, amp: 160, color: "#2a1418", period: 700, speed: 0.07 },
         { kind: "peak", baseY: 420, amp: 104, color: "#180c10", period: 300, speed: 0.16 }
       ],
-      ground: { fill: "#1b1013", edge: "#ff7b30", dash: "rgba(210,140,110,0.35)" },
+      ground: { fill: "#201215", edge: "#ff7b30", dash: "rgba(215,145,115,0.35)" },
       ambient: "embers"
     }
   ];
@@ -2314,28 +2344,7 @@
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, VIEW_W, GROUND_Y);
 
-    var orb = b.orb;
-    var orbR = orb.r * 3.2;
-    var glow = ctx.createRadialGradient(orb.x, orb.y, 8, orb.x, orb.y, orbR);
-    glow.addColorStop(0, orb.glow[0]);
-    glow.addColorStop(0.35, orb.glow[1]);
-    glow.addColorStop(1, orb.glow[2]);
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(orb.x, orb.y, orbR, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = orb.color;
-    ctx.beginPath();
-    ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (b.ambient === "embers") {
-      ctx.fillStyle = "rgba(255, 120, 50, 0.5)";
-      ctx.beginPath();
-      ctx.arc(orb.x, orb.y, orb.r * 0.55, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    drawPlanet(b.orb);
 
     ctx.fillStyle = "rgba(255,255,255," + b.stars.alpha + ")";
     for (var i = 0; i < b.stars.count; i++) {
@@ -2346,6 +2355,95 @@
       ctx.fillRect(sx, sy, 2, 2);
     }
     ctx.globalAlpha = 1;
+  }
+
+  function drawPlanet(orb) {
+    var cx = orb.x;
+    var cy = orb.y;
+    var r = orb.r;
+    var i;
+
+    var haloR = r * 3.1;
+    var halo = ctx.createRadialGradient(cx, cy, 6, cx, cy, haloR);
+    halo.addColorStop(0, orb.glow[0]);
+    halo.addColorStop(0.35, orb.glow[1]);
+    halo.addColorStop(1, orb.glow[2]);
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (orb.ring) {
+      drawPlanetRing(orb, true);
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+
+    var body = ctx.createRadialGradient(cx - r * 0.36, cy - r * 0.4, r * 0.1, cx, cy, r * 1.15);
+    body.addColorStop(0, orb.lit);
+    body.addColorStop(0.42, orb.base);
+    body.addColorStop(0.78, orb.dark);
+    body.addColorStop(1, orb.dark);
+    ctx.fillStyle = body;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+
+    var bandY = [-0.44, 0.06, 0.5];
+    var bandH = [0.15, 0.19, 0.12];
+    for (i = 0; i < orb.bands.length; i++) {
+      ctx.fillStyle = orb.bands[i];
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + r * bandY[i], r * 1.06, r * bandH[i], 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = orb.bands[1];
+    ctx.beginPath();
+    ctx.ellipse(cx - r * 0.42, cy + r * 0.28, r * 0.2, r * 0.14, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = orb.bands[2];
+    ctx.beginPath();
+    ctx.ellipse(cx + r * 0.32, cy - r * 0.44, r * 0.15, r * 0.11, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    var rim = ctx.createRadialGradient(cx, cy, r * 0.7, cx, cy, r);
+    rim.addColorStop(0, "rgba(255,255,255,0)");
+    rim.addColorStop(0.85, "rgba(255,255,255,0)");
+    rim.addColorStop(1, "rgba(255,255,255,0.32)");
+    ctx.fillStyle = rim;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+
+    ctx.restore();
+
+    if (orb.ring) {
+      drawPlanetRing(orb, false);
+    }
+  }
+
+  function drawPlanetRing(orb, behind) {
+    var ring = orb.ring;
+    var r = orb.r;
+
+    ctx.save();
+    ctx.beginPath();
+    if (behind) {
+      ctx.rect(orb.x - r * 3.2, orb.y - r * 3.2, r * 6.4, r * 3.2);
+    } else {
+      ctx.rect(orb.x - r * 3.2, orb.y, r * 6.4, r * 3.2);
+    }
+    ctx.clip();
+
+    for (var i = 0; i < 2; i++) {
+      var radius = r * (1.65 + i * 0.34);
+      ctx.strokeStyle = i === 0 ? ring.color : ring.color2;
+      ctx.lineWidth = r * (i === 0 ? 0.13 : 0.08) * ring.w;
+      ctx.beginPath();
+      ctx.ellipse(orb.x, orb.y, radius, radius * ring.tilt, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   function drawHills() {
@@ -2502,29 +2600,36 @@
       ctx.rect(x0, GROUND_Y - 6, w, VIEW_H - GROUND_Y + 6);
       ctx.clip();
 
-      var g = ctx.createLinearGradient(0, GROUND_Y - 6, 0, VIEW_H);
-      g.addColorStop(0, "#03050a");
-      g.addColorStop(0.4, "#070d18");
-      g.addColorStop(1, "#13223c");
+      var b = biome();
+      var lit = b.orb.lit;
+      var dark = b.orb.dark;
+
+      ctx.fillStyle = "rgba(3, 5, 10, 0.97)";
+      ctx.fillRect(x0, GROUND_Y - 6, w, VIEW_H - GROUND_Y + 6);
+
+      var g = ctx.createLinearGradient(0, GROUND_Y, 0, VIEW_H);
+      g.addColorStop(0, rgbaFromHex(b.ground.fill, 0.1));
+      g.addColorStop(0.5, rgbaFromHex(b.ground.fill, 0.3));
+      g.addColorStop(1, rgbaFromHex(b.ground.fill, 0.45));
       ctx.fillStyle = g;
       ctx.fillRect(x0, GROUND_Y - 6, w, VIEW_H - GROUND_Y + 6);
 
       var lip = ctx.createLinearGradient(0, GROUND_Y - 2, 0, GROUND_Y + 14);
-      lip.addColorStop(0, "rgba(205, 228, 255, 0.16)");
-      lip.addColorStop(1, "rgba(205, 228, 255, 0)");
+      lip.addColorStop(0, rgbaFromHex(lit, 0.2));
+      lip.addColorStop(1, rgbaFromHex(lit, 0));
       ctx.fillStyle = lip;
       ctx.fillRect(x0, GROUND_Y - 2, w, 16);
 
       var leftWall = ctx.createLinearGradient(x0, 0, x0 + wall, 0);
-      leftWall.addColorStop(0, "rgba(158, 190, 224, 0.34)");
-      leftWall.addColorStop(0.45, "rgba(120, 152, 190, 0.12)");
-      leftWall.addColorStop(1, "rgba(120, 152, 190, 0)");
+      leftWall.addColorStop(0, rgbaFromHex(lit, 0.34));
+      leftWall.addColorStop(0.45, rgbaFromHex(lit, 0.11));
+      leftWall.addColorStop(1, rgbaFromHex(lit, 0));
       ctx.fillStyle = leftWall;
       ctx.fillRect(x0, GROUND_Y, wall, VIEW_H - GROUND_Y);
 
       var rightWall = ctx.createLinearGradient(x0 + w - wall, 0, x0 + w, 0);
-      rightWall.addColorStop(0, "rgba(12, 20, 32, 0)");
-      rightWall.addColorStop(1, "rgba(12, 20, 32, 0.6)");
+      rightWall.addColorStop(0, rgbaFromHex(dark, 0));
+      rightWall.addColorStop(1, rgbaFromHex(dark, 0.55));
       ctx.fillStyle = rightWall;
       ctx.fillRect(x0 + w - wall, GROUND_Y, wall, VIEW_H - GROUND_Y);
 
@@ -3346,6 +3451,11 @@
     ctx.beginPath();
     ctx.arc(cx, y - 8, 9, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  function rgbaFromHex(hex, alpha) {
+    var n = parseInt(hex.slice(1), 16);
+    return "rgba(" + ((n >> 16) & 255) + ", " + ((n >> 8) & 255) + ", " + (n & 255) + ", " + alpha + ")";
   }
 
   function shade(hex, amount) {

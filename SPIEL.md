@@ -105,13 +105,25 @@ Jedes Level hat eine eigene Hintergrundkulisse (`BIOMES`-Array, Zugriff über `b
 nach Level 5 wiederholt es sich). Die Kulisse steuert Himmelsverlauf, Himmelskörper,
 Sterne, zwei Parallax-Ebenen, die Bodenfarben und einen Umgebungseffekt:
 
-| Level | Kulisse | Himmel | Himmelskörper | Parallax-Ebenen | Bodenkante | Effekt |
+| Level | Kulisse | Himmel | Himmelskörper (`orb`) | Parallax-Ebenen | Boden | Effekt |
 |---|---|---|---|---|---|---|
-| 1 | DAEMMERUNG | Abendblau → Violett → Orange | Sonne | sanfte Hügel (Sinuskurve) | Türkis | – |
-| 2 | WUESTE | Violett → Sand | große Sonne | Dünen (flache Sinuskurve) | Orange | – |
-| 3 | NACHTSTADT | fast schwarz → Mitternachtsblau | Mond | Silhouetten-Stadt mit erleuchteten Fenstern | Blau | – |
-| 4 | EISFELD | Nachtblau → Eisblau → Weiß | blasse Wintersonne | Berggipfel (Sägezahn) | Eisweiß | Schneefall |
-| 5 | VULKAN | Schwarz → Glutrot | rotglühender Feuerball | Vulkan mit leuchtendem Krater + Gipfel | Glutorange | aufsteigende Glut |
+| 1 | DAEMMERUNG | Abendblau → Violett → Orange | glutorangener Planet mit violetten Bändern, Halo | sanfte Hügel (Sinuskurve) | violett-grau, Kante Amber | – |
+| 2 | WUESTE | Violett → Sand | Sandgasriese mit **Ring** (Bänder in Ocker/Creme) | Dünen (flache Sinuskurve) | warmes Sandbraun, Kante Hellgold | – |
+| 3 | NACHTSTADT | fast schwarz → Mitternachtsblau | blau-grüne Welt mit Bändern, Randlicht | Silhouetten-Stadt mit erleuchteten Fenstern | Indigo, Kante Hellblau | – |
+| 4 | EISFELD | Nachtblau → Eisblau → Weiß | blassblauer Eisplanet mit **Ring**, Bänder hellblau/weiß | Berggipfel (Sägezahn) | blaugrau, Kante Eisweiß | Schneefall |
+| 5 | VULKAN | Schwarz → Glutrot | Magmaglut mit rotglühenden Bändern und dunkler Terminatorlinie | Vulkan mit leuchtendem Krater + Gipfel | schwarzrot, Kante Glutorange | aufsteigende Glut |
+
+Jeder Himmelskörper wird als **Kugel mit Eigenfarbe** gezeichnet (`drawPlanet()`): Halo, Kugel mit
+Verlauf von beleuchteter Seite (`lit`) über Grundton (`base`) zur Schattenseite (`dark`), drei
+Bänder, zwei Flecken, ein Randlicht für die Atmosphäre. Wüste und Eisfeld haben zusätzlich einen
+**Ring** (`drawPlanetRing()`), der in zwei Durchgängen gezeichnet wird – hinter dem Planeten und,
+per Clip auf die untere Hälfte, davor.
+
+**Der Boden ist auf den Planeten abgestimmt** (`ground: { fill, edge, dash }` pro Kulisse): Füllung im
+Farbton des Himmelskörpers, Kantenton in dessen Lichtfarbe, Markierungen passend dazwischen.
+Die Gräben übernehmen das ebenfalls: Wände werden mit `rgbaFromHex(orb.lit, …)` beleuchtet, die
+Schattenkante mit `orb.dark`, die Tiefe bekommt einen schwachen Ton der Bodenfüllung – ein Graben
+liegt also farblich in der jeweiligen Kulisse.
 
 Die Ebenen-Kulissen kennen vier Formen: `hill`, `dune`, `city` (Rechtecke mit Fenstern), `peak`
 (Sägezahn) und `volcano` (Kegel mit abgeflachtem Krater). Schnee und Glut sind zustandslos aus
@@ -209,9 +221,10 @@ Presse `spawnGap() * rand(1.1,1.4)` · Turm `spawnGap() * rand(1.25,1.55)`
 
 ### Gräben und Lava
 
-Optik der Gräben: eine Tiefenfüllung mit Verlauf (oben fast schwarz, unten leicht bläulich), dazu
-innen an der linken Wand ein weicher Lichtsaum (Tageslicht auf der Wand), rechts eine dunkle Kante,
-eine sanfte „Lippe" am oberen Rand und eine Abdunklung zum Bildrand unten. Bewusst **keine** harten
+Optik der Gräben: eine Tiefenfüllung mit Verlauf (oben fast schwarz, unten mit einem schwachen Ton
+der jeweiligen Bodenfarbe), dazu innen an der linken Wand ein weicher Lichtsaum **in der Lichtfarbe
+des Planeten** (`orb.lit`), rechts eine dunkle Kante in dessen Schattenfarbe (`orb.dark`), eine
+sanfte „Lippe" am oberen Rand und eine Abdunklung zum Bildrand unten. Bewusst **keine** harten
 Linien mehr – die früheren orangen Gefahrenstriche im Graben, die orangen Kantenbalken und die
 durchgehende Neonlinie über dem Boden sind entfernt; die Bodenkante ist jetzt ein weicher Verlauf mit
 einem 2 px dünnen Biome-Farbton bei 20 % Deckkraft. Die Wandbreite skaliert mit der Grabenbreite
@@ -466,6 +479,10 @@ Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
   Level 5: min 848 / avg 1006 px), der Höhenrhythmus mid→ground→high durchläuft, der Bodenanteil
   bei ~32 % liegt und die Benzinbilanz bei 61 % Sammelquote liegt; Level 1 mit sauberem Spiel in
   32 s schaffbar (90 % Restbenzin), Level 5 mit 47 %, Nur-Boden-Spieler verliert 2 Leben
+- Planeten/Boden: geprüft, dass alle fünf Kulissen mit Verläufen rendern und `save`/`restore`
+  balanciert bleibt, die Ringplaneten (Wüste, Eisfeld) die zusätzlichen Ringbahnen zeichnen
+  (1311 vs 830 Ellipsen pro Frame über 120 Frames) und die Gräben mit der neuen, kulissen-
+  abhängigen Beleuchtung fehlerfrei durchlaufen (176 Frames mit Graben im Bild)
 - Graben-Optik: geprüft, dass die orangen Striche im Graben, die orangen Kantenbalken und die
   durchgehende Bodenlinie nicht mehr gezeichnet werden, die Tiefenfüllung da ist, Verläufe für
   Wände und Lippe genutzt werden und normale wie Lavagräben ohne Zeichenfehler durchlaufen
@@ -602,6 +619,11 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     rechte Kante, weiche Lippe und Bodenabdunklung; orange Striche im Graben, orange Kantenbalken
     und die durchgehende Neonlinie über dem Boden entfernt (dort jetzt ein weicher Verlauf plus
     2 px Biome-Ton bei 20 %). Ungenutztes `glow` aus den Kulissen-Daten entfernt
+27. Planeten farbig und Boden angepasst: jeder Himmelskörper ist jetzt eine Kugel mit Verlauf
+    (beleuchtete Seite, Grundton, Schattenseite), drei Bändern, zwei Flecken und Randlicht; Wüste
+    und Eisfeld haben einen Ring in zwei Durchgängen. Bodenfüllung, Kante und Markierungen folgen
+    dem Planeten, ebenso die Gräben (Wandlicht in `orb.lit`, Schatten in `orb.dark`,
+    `rgbaFromHex()` als Hilfsfunktion)
 
 ---
 
