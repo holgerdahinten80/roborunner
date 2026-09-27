@@ -440,6 +440,8 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 14. Fünf verschiedene Hintergrundkulissen (Dämmerung, Wüste, Nachtstadt, Eisfeld, Vulkan) inklusive
     Schnee- und Glut-Effekt; Ziel-Gate durch ein animiertes Portal ersetzt, in das der Roboter
     sichtbar hineingeht (`gateX` → `portalX`)
+15. Auf dem Raspberry Pi veröffentlicht: als Unterordner `/spiel/` im vorhandenen nginx-Container,
+    öffentlich über `https://holger80.dynv6.net/spiel/` (siehe Abschnitt 12)
 
 ---
 
@@ -456,3 +458,64 @@ Start-Process "C:\Projekte\Testspiel\index.html"
 git -C C:\Projekte\Testspiel status --short
 git -C C:\Projekte\Testspiel log --oneline
 ```
+
+---
+
+## 12. Auslieferung auf dem Raspberry Pi
+
+Das Spiel läuft öffentlich auf dem vorhandenen Heimserver (kein eigener Webserver nötig).
+
+| Zugang | Adresse |
+|---|---|
+| Internet (HTTPS, jeder mit der Adresse) | `https://holger80.dynv6.net/spiel/` |
+| Nur im Heimnetz | `http://192.168.178.30:8080/spiel/` |
+
+### Wie es eingebunden ist
+
+```
+Internet -> Caddy (Container "caddy", Port 80/443, Let's-Encrypt-Zertifikat)
+            Caddyfile: holger80.dynv6.net { reverse_proxy localhost:8080 }
+         -> nginx (Container "nginx-web", Host-Port 8080)
+            Bind-Mount /media/ssd/html -> /usr/share/nginx/html
+            Spiel liegt darin als Unterordner /spiel/
+```
+
+- Der Zugriff geschieht per SSH über den Host-Eintrag `rasp` (192.168.178.30, User `pi`,
+  Schlüssel `~/.ssh/id_rsa`). `pi` ist in der Gruppe `docker` – **für alles hier ist kein sudo nötig**.
+- Die bestehende Startseite `/media/ssd/html/index.html` (795 KB) bleibt unberührt; das Spiel
+  liegt als eigener Unterordner daneben.
+- Kein Backend, keine Datenbank, keine Anmeldung: reine statische Dateien. Damit ist die
+  Sicherheitsfläche minimal, aber auch jeder mit der Adresse kann spielen.
+
+### Update einspielen (aus `C:\Projekte\Testspiel` heraus)
+
+```powershell
+$stage = "$env:TEMP\kilo\roborunner"
+New-Item -ItemType Directory -Path $stage -Force | Out-Null
+Copy-Item index.html, style.css, game.js -Destination $stage -Force
+
+# 1. auf den Pi kopieren
+scp -r $stage rasp:/home/pi/roborunner_stage
+
+# 2. in den nginx-Container (Bind-Mount) kopieren und Rechte setzen
+ssh rasp "docker cp /home/pi/roborunner_stage/. nginx-web:/usr/share/nginx/html/spiel/ ; ^
+          docker exec nginx-web chmod 755 /usr/share/nginx/html/spiel ; ^
+          docker exec nginx-web chmod 644 /usr/share/nginx/html/spiel/*"
+
+# 3. prüfen
+ssh rasp "curl -s -o /dev/null -w 'spiel/: %{http_code}\n' http://127.0.0.1:8080/spiel/"
+Invoke-WebRequest https://holger80.dynv6.net/spiel/ -UseBasicParsing | Select-Object StatusCode
+```
+
+Wichtige Details dabei:
+
+- **Rechte setzen ist Pflicht**: `docker cp` legt Ordner mit Modus 700 an, der nginx-Worker läuft
+  aber als Benutzer `nginx` (uid 101) – ohne `chmod 755` auf den Ordner und `644` auf die Dateien
+  antwortet nginx mit 403.
+- Der Container muss **nicht** neu gestartet werden; nginx liest die Dateien bei jedem Request.
+- Der Ordner liegt im Bind-Mount auf der Host-Platte, übersteht also `docker compose up -d`
+  und einen Neustart des Pi. Nur ein neues Image/Setup würde ihn verlieren.
+- Zum Prüfen über die öffentliche Domain von außen: `Invoke-WebRequest` von Windows aus
+  (aus dem Heimnetz heraus zeigt `curl` gegen `127.0.0.1` sonst nur den HTTP→HTTPS-Redirect 308,
+  und ohne SNI schlägt TLS lokal fehl – deshalb `--resolve` oder der Weg über das Internet).
+- Aufräumen nach dem Update: `ssh rasp "rm -rf /home/pi/roborunner_stage"`.
