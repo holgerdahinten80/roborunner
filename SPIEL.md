@@ -455,6 +455,8 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 16. Handy-tauglich gemacht: Web-App-Manifest mit Vollbild, Service Worker (offline), App-Icons,
     Touch-Feuerknopf mit Dauerfeuer, Vollbild-Anforderung beim ersten Tippen, Mobil-Hinweise im
     Titel (siehe Abschnitt 13)
+17. Externe Sicherung: privates GitHub-Repo `holgerdahinten80/roborunner` als `origin` eingerichtet,
+    komplette Historie gepusht; Push-Anleitung steht in Abschnitt 11
 
 ---
 
@@ -470,7 +472,28 @@ Start-Process "C:\Projekte\Testspiel\index.html"
 # Git
 git -C C:\Projekte\Testspiel status --short
 git -C C:\Projekte\Testspiel log --oneline
+git -C C:\Projekte\Testspiel log --oneline origin/main    # was liegt auf GitHub
 ```
+
+### Git-Remote (externe Sicherung)
+
+| | |
+|---|---|
+| `origin` | `git@github.com:holgerdahinten80/roborunner.git` – privat, über SSH (kein Token nötig) |
+| Branch | `main`, verfolgt `origin/main` |
+
+```powershell
+# nach jedem Commit hochladen
+git -C C:\Projekte\Testspiel push
+
+# prüfen, ob lokal und Remote gleich sind (Hash-Vergleich)
+git -C C:\Projekte\Testspiel rev-parse HEAD
+git -C C:\Projekte\Testspiel ls-remote origin
+```
+
+Der SSH-Zugang läuft über den vorhandenen Schlüssel (`ssh -T git@github.com` meldet
+`Hi holgerdahinten80!`). GitLab ist **nicht** eingerichtet – dort ist kein Schlüssel hinterlegt.
+Der Raspberry Pi hat kein Git, dort liegen nur die ausgelieferten Dateien (Abschnitt 12).
 
 ---
 
