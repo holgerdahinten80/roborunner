@@ -527,11 +527,21 @@
       noiseType(0.045, 0.035, 2600, "highpass");
     }
 
-  function sfxEnemyDown() {
-    noise(0.24, 0.3, 1400);
-    tone({ freq: 320, freqEnd: 80, duration: 0.26, type: "square", gain: 0.14 });
-    tone({ freq: 900, freqEnd: 1600, duration: 0.12, type: "triangle", gain: 0.1 });
-  }
+    function sfxEnemyDown() {
+      var p = 1 + (Math.random() - 0.5) * 0.06;
+
+      noiseType(0.09, 0.2, 2600, "highpass");
+      tone({ freq: 150 * p, freqEnd: 58 * p, duration: 0.22, type: "sine", gain: 0.19, attack: 0.004 });
+
+      tone({ freq: 520 * p, freqEnd: 96 * p, duration: 0.34, type: "triangle", gain: 0.11, attack: 0.005 });
+      tone({ freq: 260 * p, freqEnd: 70 * p, duration: 0.3, type: "sine", gain: 0.07, delay: 0.03 });
+
+      tone({ freq: 1450 * p, duration: 0.05, type: "triangle", gain: 0.05, delay: 0.02 });
+      tone({ freq: 2050 * p, duration: 0.06, type: "triangle", gain: 0.045, delay: 0.09 });
+      noiseType(0.28, 0.08, 1800, "bandpass", 0.06);
+
+      tone({ freq: 1046, duration: 0.13, type: "triangle", gain: 0.055, delay: 0.13 });
+    }
 
   function sfxShot() {
     tone({ freq: 900, freqEnd: 260, duration: 0.12, type: "square", gain: 0.1 });

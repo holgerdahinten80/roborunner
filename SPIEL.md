@@ -333,6 +333,13 @@ suspendiert. Sounds: Sprung, Doppelsprung, Kanister (Tonhöhe steigt mit Combo),
 Spielerschuss, Gegnerschuss, Gegnerabschuss, Crash-Explosion, Grabensturz, Lava, Schild, Tank leer,
 Warnpiepen, Kauf, abgelehnter Kauf, Level-Fanfare, Extra-Leben, Game Over.
 
+Der **Abschuss eines Gegners** (`sfxEnemyDown`) ist bewusst der auffälligste Trefferklang und
+mehrschichtig aufgebaut: knackiger Highpass-Transient (2600 Hz) als Einschlag, Bass-Stoß 150→58 Hz,
+das „Motor stirbt ab" 520→96 Hz mit Sub-Oktave, zwei Funkenblitze (1450 und 2050 Hz), ein
+Bandpass-Rauschen (1800 Hz) für Trümmer und zum Abschluss eine kurze Quittung auf 1046 Hz.
+Spitzenpegel 0,19 – lauter als Sprung/Schuss (0,1/0,062), leiser als der eigene Einschlag (0,22) –
+und mit ±3 % Zufalls-Verstimmung, damit Serienabschüsse nicht monoton klingen.
+
 Sprung und Schuss sind bewusst **tief und leise** gehalten, weil sie am häufigsten ausgelöst werden:
 Sprung ist ein Booster aus Sinus 185→300 Hz plus Triangle 92→150 Hz und einem kurzen Luftstoß
 (`noiseType`, Lowpass 900 Hz), Doppelsprung das gleiche eine Oktave höher (250→410 / 125→205 Hz,
@@ -451,6 +458,10 @@ Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
   Level 5: min 848 / avg 1006 px), der Höhenrhythmus mid→ground→high durchläuft, der Bodenanteil
   bei ~32 % liegt und die Benzinbilanz bei 61 % Sammelquote liegt; Level 1 mit sauberem Spiel in
   32 s schaffbar (90 % Restbenzin), Level 5 mit 47 %, Nur-Boden-Spieler verliert 2 Leben
+- Abschuss-Klang: geprüft, dass Treffer-Transient (Highpass), Bass 150→58 Hz, Motor-Absturz
+  520→96 Hz, Funken 1450/2050 Hz und Quittung 1046 Hz vorhanden sind, ohne Rechteck/Sägezahn,
+  Pegel 0,19 (lauter als Sprung/Schuss, leiser als der Einschlag), Verstimmung wirkt, und der Klang
+  sich klar vom Kanister-Aufsammeln unterscheidet
 - Sterbe-Klänge: geprüft, dass Einschlag, Sturz, Lava, Tank leer und Game-Over-Melodie keine
   Rechteck-/Sägezahn-Anteile mehr enthalten, ihre tiefen Frequenzen treffen (98/58, 520/250, 128,
   215/182, 392/330/262/196 Hz), Rauschen gedämpft und teils verzögert kommt und die Spitzenpegel
@@ -572,6 +583,9 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     jetzt 5600 px statt 4600 (+22 %), die nötige Sammelquote sinkt von 74 % auf 61 %.
     Level 1 mit sauberem Spiel 90 % Restbenzin, Level 5 47 %; wer nur Bodenkanister mitnimmt,
     verliert weiterhin zwei Leben pro Level
+25. Abschuss-Klang aufgewertet: mehrschichtiger Treffer-Sound (Highpass-Transient, Bass-Stoß
+    150→58 Hz, Motor-Absturz 520→96 Hz, Funken 1450/2050 Hz, Trümmer-Rauschen, Quittung 1046 Hz)
+    statt des bisherigen Rechteck-Platschers, mit Zufalls-Verstimmung
 
 ---
 
