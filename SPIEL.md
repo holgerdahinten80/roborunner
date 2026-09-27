@@ -24,8 +24,12 @@ offene Punkte dafür stehen in Abschnitt 9.
 |---|---|
 | `index.html` | Nur Canvas + Script-Tag, ~14 Zeilen |
 | `style.css` | Vollbild, kein Scroll, `touch-action: none` |
-| `game.js` | **Das ganze Spiel**, eine IIFE mit `"use strict"`, ~3.200 Zeilen |
+| `game.js` | **Das ganze Spiel**, eine IIFE mit `"use strict"`, ~4.000 Zeilen |
+| `manifest.json` | Web-App-Manifest: Vollbild-Anzeige, Icons, Name (für „Zum Home-Bildschirm") |
+| `sw.js` | Service Worker: cached die Dateien, damit es offline und installierbar läuft |
+| `icon-192.png`, `icon-512.png`, `apple-touch-icon.png` | App-Icons (512/192/180 px, per PowerShell/System.Drawing erzeugt) |
 | `kilo.json` | Tool-Config: erlaubt `cscript`-Bash-Befehle ohne Rückfrage |
+| `AGENTS.md` | Regeln für Agenten (u. a. automatisch committen) |
 | `SPIEL.md` | Diese Datei |
 
 Es gibt **keine** Assets: Grafik ist komplett Canvas-Zeichnung, Sound komplett synthetisch (Web Audio).
@@ -46,6 +50,8 @@ Neue Gegner/Hindernisse brauchen also nur Code, keine Dateien.
 | `M` | Ton an/aus (gespeichert) |
 | `-` / `+` | Lautstärke in 10-%-Schritten (gespeichert) |
 | Klick neben die Shop-Zeilen | Weiter zum nächsten Level |
+| **Handy:** Tippen irgendwo | Springen (Doppelsprung = zweimal tippen) |
+| **Handy:** Feuer-Knopf unten rechts | Schießen, halten feuert dauerhaft |
 
 Sprung ist **variabel**: kurz tippen = niedrig (Jump-Cut), halten = maximal hoch.
 Zusätzlich: Input-Buffer 0,13 s und Coyote-Time 0,1 s am Grabenrand.
@@ -365,6 +371,10 @@ Windows-JScript-Interpreter `cscript`, der `game.js` mit gestubbten Browser-APIs
 
 Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
 
+- Mobil/Touch: mit Touch-Stub geprüft – Mobil-Hinweise im Titel, Feuer-Knopf wird gezeichnet,
+  Knopf feuert (und springt nicht zusätzlich), Halten feuert 30 von 30 Frames, nach dem Loslassen
+  kein Schuss mehr, Knopf im Shop ohne Wirkung, Vollbild wird genau einmal angefordert;
+  mit Desktop-Stub gegengeprüft: kein Knopf, keine Handy-Hinweise, Klick springt, Enter schießt
 - Kulissen/Portal: 5 verschiedene Kulissennamen im HUD (Level 6 wiederholt Level 1), alle fünf
   inkl. Schnee/Glut fehlerfrei gerendert, Portal beendet das Level mit 3 Effekten, Roboter
   ausgeblendet, Shop erscheint, in Level 2 ist der Roboter wieder sichtbar
@@ -442,6 +452,9 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     sichtbar hineingeht (`gateX` → `portalX`)
 15. Auf dem Raspberry Pi veröffentlicht: als Unterordner `/spiel/` im vorhandenen nginx-Container,
     öffentlich über `https://holger80.dynv6.net/spiel/` (siehe Abschnitt 12)
+16. Handy-tauglich gemacht: Web-App-Manifest mit Vollbild, Service Worker (offline), App-Icons,
+    Touch-Feuerknopf mit Dauerfeuer, Vollbild-Anforderung beim ersten Tippen, Mobil-Hinweise im
+    Titel (siehe Abschnitt 13)
 
 ---
 
@@ -492,15 +505,16 @@ Internet -> Caddy (Container "caddy", Port 80/443, Let's-Encrypt-Zertifikat)
 ```powershell
 $stage = "$env:TEMP\kilo\roborunner"
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
-Copy-Item index.html, style.css, game.js -Destination $stage -Force
+Copy-Item index.html, style.css, game.js, manifest.json, sw.js, `
+          icon-192.png, icon-512.png, apple-touch-icon.png -Destination $stage -Force
 
 # 1. auf den Pi kopieren
 scp -r $stage rasp:/home/pi/roborunner_stage
 
 # 2. in den nginx-Container (Bind-Mount) kopieren und Rechte setzen
+#    Wichtig: docker exec startet keine Shell, Platzhalter deshalb mit sh -c
 ssh rasp "docker cp /home/pi/roborunner_stage/. nginx-web:/usr/share/nginx/html/spiel/ ; ^
-          docker exec nginx-web chmod 755 /usr/share/nginx/html/spiel ; ^
-          docker exec nginx-web chmod 644 /usr/share/nginx/html/spiel/*"
+          docker exec nginx-web sh -c 'chmod 755 /usr/share/nginx/html/spiel && chmod 644 /usr/share/nginx/html/spiel/*'"
 
 # 3. prüfen
 ssh rasp "curl -s -o /dev/null -w 'spiel/: %{http_code}\n' http://127.0.0.1:8080/spiel/"
@@ -519,3 +533,34 @@ Wichtige Details dabei:
   (aus dem Heimnetz heraus zeigt `curl` gegen `127.0.0.1` sonst nur den HTTP→HTTPS-Redirect 308,
   und ohne SNI schlägt TLS lokal fehl – deshalb `--resolve` oder der Weg über das Internet).
 - Aufräumen nach dem Update: `ssh rasp "rm -rf /home/pi/roborunner_stage"`.
+
+---
+
+## 13. Auf dem Handy im Vollbild (PWA)
+
+Die Seite ist als installierbare Web-App eingerichtet, damit sie ohne Browserleiste läuft.
+
+| Wo | Vorgehen |
+|---|---|
+| Android (Chrome) | Menü → **„App installieren"** bzw. „Zum Startbildschirm hinzufügen", oder im Spiel einfach loslegen – beim ersten Tippen wird automatisch Vollbild angefordert |
+| iPhone/iPad (Safari) | **Teilen → „Zum Home-Bildschirm"**, dann über das Icon starten (Safari kann kein Vollbild per API) |
+
+Was dafür im Code steckt:
+
+- `manifest.json`: `display: fullscreen` (mit `standalone` als Rückfall), Name, Theme-/Hintergrundfarbe
+  `#0a0d14`, Icons 192/512 px plus maskable Variante.
+- `index.html`: `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style:
+  black-translucent`, `apple-touch-icon`, `theme-color`, `viewport-fit=cover` (Notch) und die
+  Registrierung des Service Workers (Fehler werden geschluckt).
+- `sw.js`: cached die acht Dateien; **Netzwerk zuerst**, bei fehlender Verbindung kommt die Kopie aus
+  dem Cache. `CACHE`-Version erhöhen, wenn altes Verhalten hängen bleibt.
+- `game.js`: `touchMode` erkennt Touchgeräte (`ontouchstart` oder `navigator.maxTouchPoints`).
+  Nur dann erscheint der **Feuer-Knopf** unten rechts (`FIRE_BTN`, Radius 40 px), Halten feuert
+  dauerhaft über `game.fireHeld`, und beim ersten Tippen wird einmalig Vollbild angefordert
+  (`requestFullscreen` in `try/catch`, weil iOS die API nicht kennt). Auf dem Desktop ist alles
+  unverändert – kein Knopf, Tippen = Springen, `Enter` = Schuss.
+- Der Service Worker läuft nur in einem sicheren Kontext: über `https://holger80.dynv6.net/spiel/`
+  ja, über `http://192.168.178.30:8080/spiel/` nicht (dort funktioniert das Spiel, aber ohne
+  Offline-Cache und ohne Installationsangebot).
+
+Praktisch: Auf dem Handy quer halten, dann füllt das 16:9-Bild den Schirm fast vollständig.

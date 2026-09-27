@@ -40,6 +40,11 @@
   var VOLUME_STEP = 0.1;
   var WARN_FUEL = 12;
 
+  var touchMode = ("ontouchstart" in window)
+    || (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
+  var FIRE_BTN = { x: VIEW_W - 76, y: VIEW_H - 68, r: 40 };
+  var fullscreenTried = false;
+
   var canvas = document.getElementById("game");
   var ctx = canvas.getContext("2d");
 
@@ -185,6 +190,7 @@
     scrap: 0,
     scrapAt: 300,
     scrapItems: [],
+    fireHeld: false,
     fuelMax: FUEL_MAX,
     shield: 0,
     maxJumps: 2,
@@ -658,6 +664,7 @@
     game.shots.length = 0;
     game.shotCooldown = 0;
     game.muzzle = 0;
+    game.fireHeld = false;
     game.enemyTime = rand(2.2, 3.2);
     game.spawnTime = 2.4;
     game.canAt = 180;
@@ -1337,6 +1344,26 @@
     }
   }
 
+  function requestFullscreen() {
+    if (!touchMode || fullscreenTried) {
+      return;
+    }
+    fullscreenTried = true;
+    try {
+      var el = document.documentElement;
+      if (!el) {
+        return;
+      }
+      if (el.requestFullscreen) {
+        el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+    } catch (e) {
+      /* iOS kennt die Fullscreen-API nicht - dort greift der Startbildschirm-Modus */
+    }
+  }
+
   function fireShot() {
     if (game.state !== "playing" || game.dead || game.shotCooldown > 0) {
       return;
@@ -1726,6 +1753,9 @@
     }
 
     if (game.state === "playing") {
+      if (game.fireHeld) {
+        fireShot();
+      }
       updateEnemies(dt);
       updateShots(dt);
       collectCans();
@@ -3506,6 +3536,37 @@
 
     ctx.textAlign = "left";
 
+    if (touchMode) {
+      var readyToFire = game.shotCooldown <= 0 && game.state === "playing" && !game.dead;
+      ctx.save();
+      ctx.globalAlpha = readyToFire ? 0.9 : 0.4;
+      ctx.fillStyle = "rgba(10, 16, 26, 0.55)";
+      ctx.beginPath();
+      ctx.arc(FIRE_BTN.x, FIRE_BTN.y, FIRE_BTN.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#7fe6ff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(FIRE_BTN.x, FIRE_BTN.y, FIRE_BTN.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "#eaffff";
+      ctx.beginPath();
+      ctx.moveTo(FIRE_BTN.x + 4, FIRE_BTN.y - 18);
+      ctx.lineTo(FIRE_BTN.x - 9, FIRE_BTN.y + 2);
+      ctx.lineTo(FIRE_BTN.x - 1, FIRE_BTN.y + 2);
+      ctx.lineTo(FIRE_BTN.x - 5, FIRE_BTN.y + 18);
+      ctx.lineTo(FIRE_BTN.x + 10, FIRE_BTN.y - 3);
+      ctx.lineTo(FIRE_BTN.x + 2, FIRE_BTN.y - 3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.font = "700 12px Consolas, 'Courier New', monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.fillText("FEUER", FIRE_BTN.x, FIRE_BTN.y + FIRE_BTN.r + 13);
+      ctx.textAlign = "left";
+      ctx.restore();
+    }
+
     if (game.state === "paused") {
       panel("PAUSE", "Leertaste oder P zum Weiterspielen");
     }
@@ -3665,16 +3726,22 @@
 
   function drawOverlay() {
     if (game.state === "ready") {
-      panel("ROBO RUNNER", [
+      var intro = [
         "Leertaste / Tippen = Springen, in der Luft nochmal = Doppelsprung",
         "Benzin kommt nur aus Kanistern - viele hängen hoch",
         "Hohe Türme schaffst du nur mit Doppelsprung",
         "Lavagräben spucken Tropfen - im richtigen Moment springen",
         "Gegner greifen an - mit ENTER schießt du zurück",
         "Leben bleiben über die Level, selten gibt es Ersatz",
-        "Schrott sammeln und im Shop zwischen den Leveln ausgeben",
-        "Ton: M = an/aus, -/+ = Lautstärke"
-      ], "LEERTASTE ODER KLICK ZUM STARTEN");
+        "Schrott sammeln und im Shop zwischen den Leveln ausgeben"
+      ];
+      if (touchMode) {
+        intro.push("Handy: Quer halten, Feuer-Knopf unten rechts");
+        intro.push("Vollbild: \"Zum Home-Bildschirm\" hinzufügen");
+      } else {
+        intro.push("Ton: M = an/aus, -/+ = Lautstärke");
+      }
+      panel("ROBO RUNNER", intro, "LEERTASTE ODER KLICK ZUM STARTEN");
     } else if (game.state === "shop") {
       drawShop();
     } else if (game.state === "over") {
@@ -3917,6 +3984,19 @@
   window.addEventListener("pointerdown", function (e) {
     e.preventDefault();
     audioInit();
+    requestFullscreen();
+
+    if (touchMode && game.state === "playing" && !game.dead) {
+      var tp = pointerToView(e);
+      var ddx = tp.x - FIRE_BTN.x;
+      var ddy = tp.y - FIRE_BTN.y;
+      if (ddx * ddx + ddy * ddy <= FIRE_BTN.r * FIRE_BTN.r) {
+        game.fireHeld = true;
+        fireShot();
+        return;
+      }
+    }
+
     if (game.state === "shop" && game.shopLock <= 0) {
       var p = pointerToView(e);
       for (var i = 0; i < game.shopRows.length; i++) {
@@ -3931,6 +4011,12 @@
   });
 
   window.addEventListener("pointerup", function () {
+    game.fireHeld = false;
+    releaseJump();
+  });
+
+  window.addEventListener("pointercancel", function () {
+    game.fireHeld = false;
     releaseJump();
   });
 
