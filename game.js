@@ -58,7 +58,7 @@
   var LAVA_H = 34;
   var LAVA_BOTTOM = 30;
   var LAVA_TOP = 170;
-  var LAVA_CHANCE = 0.4;
+  var LAVA_CHANCE = 0.3;
   var TRIPLE_JUMP_VELOCITY = 560;
   var SHOP_LOCK_TIME = 0.9;
   var BULLET_SPEED = 230;
@@ -456,10 +456,25 @@
     return lo + Math.random() * (hi - lo);
   }
 
-  function difficulty() {
-    var speedPart = clamp((game.speed - START_SPEED) / (MAX_SPEED - START_SPEED), 0, 1);
-    var levelPart = clamp((game.level - 1) * 0.12, 0, 0.5);
-    return clamp(speedPart + levelPart, 0, 1);
+  function spawnGap() {
+    return Math.max(0.85, 2.2 * Math.pow(0.82, game.level - 1));
+  }
+
+  function enemyGap() {
+    return Math.max(1.15, 2.6 * Math.pow(0.85, game.level - 1));
+  }
+
+  function pitChance() {
+    return clamp(0.22 + (game.level - 1) * 0.05, 0, 0.45);
+  }
+
+  function pitWidth() {
+    var factor = 0.2 + Math.min(0.24, (game.level - 1) * 0.06) + rand(0, 0.05);
+    return clamp(game.speed * factor, 92, 358);
+  }
+
+  function levelUnlocks() {
+    return game.level >= 2;
   }
 
   function resetRobot() {
@@ -572,8 +587,8 @@
     game.shots.length = 0;
     game.shotCooldown = 0;
     game.muzzle = 0;
-    game.enemyTime = rand(1.6, 2.6);
-    game.spawnTime = 1.2;
+    game.enemyTime = rand(2.2, 3.2);
+    game.spawnTime = 2.4;
     game.canAt = 180;
     game.levelBonus = 0;
     game.obstacles.length = 0;
@@ -768,27 +783,20 @@
   }
 
   function spawnObstacle() {
-    var d = difficulty();
-
-    if (d > 0.2 && rightmostEdge() < VIEW_W - 320 && Math.random() < 0.18) {
+    if (levelUnlocks() && rightmostEdge() < VIEW_W - 320
+      && Math.random() < Math.min(0.3, 0.12 + (game.level - 2) * 0.04)) {
       var tower = makeObstacle(VIEW_W + 40, { id: "tower", w: TOWER_W, h: TOWER_H, color: "#6b7a8f" });
       game.obstacles.push(tower);
       liftCans(tower.x, tower.x + tower.w, tower.y0);
-      game.spawnTime = rand(1.8, 2.3) - d * 0.4;
-      if (game.spawnTime < 1.2) {
-        game.spawnTime = 1.2;
-      }
+      game.spawnTime = spawnGap() * rand(1.25, 1.55);
       return;
     }
 
-    if (d > 0.12 && Math.random() < 0.2 + d * 0.2) {
+    if (levelUnlocks() && Math.random() < Math.min(0.35, 0.14 + (game.level - 2) * 0.05)) {
       var crusher = makeCrusher(VIEW_W + 40);
       game.obstacles.push(crusher);
       dropPickups(crusher.x, crusher.x + crusher.w);
-      game.spawnTime = rand(1.5, 2.0) - d * 0.45;
-      if (game.spawnTime < 0.85) {
-        game.spawnTime = 0.85;
-      }
+      game.spawnTime = spawnGap() * rand(1.1, 1.4);
       return;
     }
 
@@ -797,28 +805,23 @@
     game.obstacles.push(first);
     liftCans(first.x, first.x + first.w, first.y0);
 
-    if (d > 0.45 && Math.random() < 0.3) {
+    if (levelUnlocks() && Math.random() < Math.min(0.32, 0.1 + (game.level - 2) * 0.05)) {
       var t2 = TYPES[(Math.random() * TYPES.length) | 0];
       var second = makeObstacle(VIEW_W + 40 + t.w + rand(10, 22), t2);
       game.obstacles.push(second);
       liftCans(second.x, second.x + second.w, second.y0);
     }
-    game.spawnTime = rand(1.45, 1.95) - d * 0.62;
-    if (game.spawnTime < 0.74) {
-      game.spawnTime = 0.74;
-    }
+    game.spawnTime = spawnGap() * rand(0.92, 1.12);
   }
 
   function spawnPit() {
-    var d = difficulty();
-    var w = game.speed * (0.22 + d * 0.2 + rand(0, 0.06));
-    w = clamp(w, 92, 358);
+    var w = pitWidth();
     var pit = {
       x: VIEW_W + 30,
       w: w,
       scored: false,
       seed: Math.random() * 10,
-      lava: Math.random() < LAVA_CHANCE + d * 0.2,
+      lava: levelUnlocks() && Math.random() < Math.min(0.65, LAVA_CHANCE + (game.level - 2) * 0.1),
       dropPhase: 0,
       dropRate: 0,
       dropY: GROUND_Y + LAVA_BOTTOM
@@ -832,15 +835,11 @@
 
     game.pits.push(pit);
     liftCans(pit.x, pit.x + pit.w, GROUND_Y - 40);
-    game.spawnTime = rand(1.25, 1.7) - d * 0.42;
-    if (game.spawnTime < 0.86) {
-      game.spawnTime = 0.86;
-    }
+    game.spawnTime = spawnGap() * rand(1.15, 1.45);
   }
 
   function spawnNext() {
-    var d = difficulty();
-    if (Math.random() < 0.28 + 0.26 * d) {
+    if (Math.random() < pitChance()) {
       spawnPit();
     } else {
       spawnObstacle();
@@ -1145,19 +1144,20 @@
   }
 
   function pickEnemyType() {
+    var pool = levelUnlocks() ? ENEMY_TYPES : [ENEMY_TYPES[0]];
     var total = 0;
     var i;
-    for (i = 0; i < ENEMY_TYPES.length; i++) {
-      total += ENEMY_TYPES[i].weight;
+    for (i = 0; i < pool.length; i++) {
+      total += pool[i].weight;
     }
     var roll = Math.random() * total;
-    for (i = 0; i < ENEMY_TYPES.length; i++) {
-      roll -= ENEMY_TYPES[i].weight;
+    for (i = 0; i < pool.length; i++) {
+      roll -= pool[i].weight;
       if (roll <= 0) {
-        return ENEMY_TYPES[i];
+        return pool[i];
       }
     }
-    return ENEMY_TYPES[0];
+    return pool[0];
   }
 
   function spawnEnemy() {
@@ -1565,10 +1565,13 @@
 
       game.enemyTime -= dt;
       if (game.enemyTime <= 0) {
-        if (remaining > SPAWN_STOP_MARGIN && rightmostEdge() < VIEW_W - 340) {
+        var enemiesAllowed = remaining > SPAWN_STOP_MARGIN
+          && rightmostEdge() < VIEW_W - 340
+          && (levelUnlocks() || game.distance > game.levelLength * 0.5);
+        if (enemiesAllowed) {
           spawnEnemy();
         }
-        game.enemyTime = Math.max(1.0, rand(1.3, 2.4) - difficulty() * 0.4);
+        game.enemyTime = enemyGap() * rand(0.9, 1.1);
       }
     }
 

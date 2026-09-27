@@ -64,7 +64,27 @@ Ein Level endet an einem Ziel-Gate; dort öffnet sich der Shop, dann folgt das n
 | Länge | `15600 + (level-1) * 4200` px (Level 1 dauert ca. 32 s, Länge wächst pro Level) |
 | Starttempo | `min(940 - 140, 330 + (level-1) * 45)` px/s |
 | Tempo im Level | `min(940, startTempo + distance * 0.022)` |
-| Schwierigkeit `d` | `clamp((speed-330)/610 + min((level-1)*0.12, 0.5), 0, 1)` – steigt mit Tempo **und** Level |
+| Hindernis-Takt | `spawnGap() = max(0.85, 2.2 * 0.82^(level-1))` s – **rein levelbasiert**, das Tempo im Level erhöht den Druck über die kürzere Reaktionszeit |
+| Gegner-Takt | `enemyGap() = max(1.15, 2.6 * 0.85^(level-1))` s |
+| Graben-Anteil | `pitChance() = clamp(0.22 + (level-1)*0.05, 0, 0.45)` der Spawns |
+| Grabenbreite | `speed * (0.20 + min(0.24, (level-1)*0.06) + rand(0,0.05))`, geklemmt 92–358 px |
+
+**Anzahl der Hindernisse steigt pro Level** (gemessen über je 50 s auf gleicher Level-Position,
+Hindernisse + Gräben + Gegner): Level 1 ≈ 36, Level 2 ≈ 79, Level 3 ≈ 97, Level 5 ≈ 134.
+Der Spawnabstand sinkt dabei von 2,30 s (Level 1) auf 1,12 s (Level 5).
+
+**Sonderhindernisse und Gegner sind gestaffelt** (`levelUnlocks()` = `level >= 2`):
+
+| Level 1 | ab Level 2 |
+|---|---|
+| nur statische Hindernisse und Gräben (ohne Lava) | zusätzlich Türme, Pressen, Lava und doppelte Hindernisse |
+| keine Gegner in der ersten Levelhälfte | Gegner von Anfang an, alle drei Typen |
+| Gegner danach nur **Krabbler** | Krabbler 42 %, Drohne 34 %, Turm 24 % |
+
+Chancen ab Level 2 (gedeckelt): Turm `min(0.3, 0.12+(level-2)*0.04)` ·
+Presse `min(0.35, 0.14+(level-2)*0.05)` · Doppelhindernis `min(0.32, 0.1+(level-2)*0.05)` ·
+Lava `min(0.65, 0.3+(level-2)*0.1)`.
+Level 1 startet außerdem mit 2,4 s Vorlauf bis zum ersten Hindernis statt 1,2 s.
 
 ### Punktestand
 
@@ -140,16 +160,17 @@ Nicht kaufbare Artikel zeigen `MAX` bzw. roten Preis und geben eine Meldung.
 | `tower` | 34×132 | **nur mit Doppelsprung** überwindbar (Einzelsprung schafft 109 px, Krone liegt 20 px darüber) |
 | `crusher` | 46×46 | hängt an Deckenschiene, fährt 200 px auf/ab (`rate` 2,4–3,3) – oben durchlaufen, unten überspringen, mittig nur per Doppelsprung |
 
-Spawn-Takte (alle Werte werden mit der Schwierigkeit kürzer, Untergrenzen in Klammern):
-Hindernisse `rand(1.45,1.95) - d*0.62` (0.74 s) · Gräben `rand(1.25,1.7) - d*0.42` (0.86 s) ·
-Presse `rand(1.5,2.0) - d*0.45` (0.85 s, Chance `0.2+d*0.2` ab `d>0.12`) ·
-Turm `rand(1.8,2.3) - d*0.4` (1.2 s, Chance 18 % ab `d>0.2`, braucht 320 px freie Anlaufzone).
+Spawn-Takte (Basis `spawnGap()`, siehe Level-Parameter):
+Hindernisse `spawnGap() * rand(0.92,1.12)` · Gräben `spawnGap() * rand(1.15,1.45)` ·
+Presse `spawnGap() * rand(1.1,1.4)` · Turm `spawnGap() * rand(1.25,1.55)`
+(Turm und Presse nur ab Level 2, Turm braucht 320 px freie Anlaufzone).
 
 ### Gräben und Lava
 
-- Grabenbreite `speed * (0.22 + d*0.2 + rand(0,0.06))`, geklemmt auf 92–358 px.
+- Grabenbreite nach Formel im Level-Parameter-Block, geklemmt auf 92–358 px.
   Weil die Breite mit dem Tempo skaliert, ist die nötige Flugzeit konstant (~0,3–0,42 s von 0,49–0,62 s Sprungzeit).
-- 40 % + `d*0.2` der Gräben sind **Lavagräben** (glühende Füllung, Blasen, Lichtschein).
+- **Erst ab Level 2** sind `min(0.65, 0.3+(level-2)*0.1)` der Gräben **Lavagräben**
+  (glühende Füllung, Blasen, Lichtschein); Level 1 hat nur gewöhnliche Gräben.
 - Jeder Lavagraben spuckt einen **Lavatropfen** (32×34), der sinusförmig zwischen 30 px **unter** und
   170 px **über** dem Boden pendelt (`rate` 2,2–2,8).
   Dadurch gibt es drei Fälle: Tropfen tief → einfacher Sprung; Tropfen auf Flughöhe → nur Doppelsprung;
@@ -160,7 +181,8 @@ Turm `rand(1.8,2.3) - d*0.4` (1.2 s, Chance 18 % ab `d>0.2`, braucht 320 px frei
 ### Gegner (greifen aktiv an)
 
 Kontakt kostet ein Leben („GEGNER - 1 LEBEN WEG"), Schild fängt es ab. Spawn nur in freien Lücken
-(`rightmostEdge() < VIEW_W - 340`) und nicht im Zielbereich, eigener Takt `1.0–2.4 s - d*0.4`.
+(`rightmostEdge() < VIEW_W - 340`) und nicht im Zielbereich, eigener Takt `enemyGap() * rand(0.9,1.1)`.
+**Level 1:** erst ab der Levelhälfte und nur Krabbler (sanfter Einstieg).
 
 | Typ | Größe | Angriff | Konter |
 |---|---|---|---|
@@ -169,7 +191,7 @@ Kontakt kostet ein Leben („GEGNER - 1 LEBEN WEG"), Schild fängt es ab. Spawn 
 | Geschützturm | 46×52 | **schießt** im Bereich 208–780 px alle 1,2–1,8 s (erstmalig nach 0,32–0,6 s) | Turm und Kugel überspringen oder Kugel abschießen |
 
 Gegnerkugel: 18×13 auf Höhe `GROUND_Y-48`, Fluggeschwindigkeit `Welt + 230 px/s` (kommt also schneller als der Scroll).
-Mischungsverhältnis: Krabbler 42 %, Drohne 34 %, Turm 24 %.
+Mischungsverhältnis ab Level 2: Krabbler 42 %, Drohne 34 %, Turm 24 %.
 
 ### Schießen
 
@@ -240,7 +262,8 @@ werden mit +6/+10 Bonus geprüft (leichter einzusammeln als zu treffen).
 GRAVITY 3050 · HOLD_GRAVITY 2400 · JUMP 745 · DOUBLE_JUMP 645 · TRIPLE_JUMP 560 · JUMP_CUT 380
 COYOTE 0.1 · JUMP_BUFFER 0.13 · MAX_SPEED 940 · SPEED_RAMP 0.022
 START_LIVES 3 · FUEL_MAX 100 · FUEL_PER_PIXEL 100/4600 · FUEL_PER_CAN 25 · RESPAWN_FUEL 45
-INVULN_TIME 1.5 · SPARE_CHANCE 0.5 · SPARE_LIFT 220 · LAVA_CHANCE 0.4
+INVULN_TIME 1.5 · SPARE_CHANCE 0.5 · SPARE_LIFT 220
+Dichte: spawnGap 2.2*0.82^(level-1) · enemyGap 2.6*0.85^(level-1) · pitChance 0.22+(level-1)*0.05
 SHOT_SPEED 900 · SHOT_COOLDOWN 0.26 · SHOT_SCORE 25 · BULLET_SPEED 230 · SHOP_LOCK_TIME 0.9
 ```
 
@@ -321,6 +344,10 @@ Windows-JScript-Interpreter `cscript`, der `game.js` mit gestubbten Browser-APIs
 
 Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
 
+- Level-Dichte: gemessen über je 50 s pro Level steigt die Zahl der Hindernisse+Gegner
+  34 → 75 → 93 → 137 (Level 1 bis 5), Spawnabstand 2,42 s → 1,06 s; Level 1 ohne Türme/Pressen/Lava
+  und ohne Gegner in der ersten Hälfte; erstes Hindernis in Level 1 erst nach 2,4 s;
+  Level-1-Graben mit 7 von 19 Timings überspringbar
 - Steuerung/HUD: Titel, HUD ohne Tempo- und Sprunganzeige, Level- und Benzinanzeige, alle Regeln im Titel
 - Physik: Sprunghöhen (109/188/218 px), Graben-Sprungfenster 6 von 21 Timings, 7 von 11 für Krabbler/Turm/Drohne/Schuss
 - Benzin: Verbrauch exakt 4600 px pro Tank, Kanister +25 %, Deckel greift, Tank leer kostet ein Leben,
@@ -381,7 +408,10 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 9. Roboter explodiert richtig beim Aufprall, Welt friert kurz ein
 10. Gegner: Krabbler, Drohne mit Sturzangriff, Geschützturm mit Beschuss
 11. Spieler-Schuss mit `Enter`
-12. Git-Repo angelegt, Projekt-Doku erstellt
+12. Git-Repo angelegt, Projekt-Doku erstellt, Auto-Commit-Regel in `AGENTS.md`
+13. Level 1 entschärft: Hindernistakt und Sonderchancen sind jetzt level- statt tempoabhängig,
+    damit die Anzahl der Hindernisse pro Level klar steigt (Level 1 ohne Türme/Pressen/Lava,
+    Gegner dort erst ab der Levelhälfte und nur Krabbler, 2,4 s Anlauf statt 1,2 s)
 
 ---
 
