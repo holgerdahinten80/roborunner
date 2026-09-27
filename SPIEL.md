@@ -209,6 +209,14 @@ Presse `spawnGap() * rand(1.1,1.4)` · Turm `spawnGap() * rand(1.25,1.55)`
 
 ### Gräben und Lava
 
+Optik der Gräben: eine Tiefenfüllung mit Verlauf (oben fast schwarz, unten leicht bläulich), dazu
+innen an der linken Wand ein weicher Lichtsaum (Tageslicht auf der Wand), rechts eine dunkle Kante,
+eine sanfte „Lippe" am oberen Rand und eine Abdunklung zum Bildrand unten. Bewusst **keine** harten
+Linien mehr – die früheren orangen Gefahrenstriche im Graben, die orangen Kantenbalken und die
+durchgehende Neonlinie über dem Boden sind entfernt; die Bodenkante ist jetzt ein weicher Verlauf mit
+einem 2 px dünnen Biome-Farbton bei 20 % Deckkraft. Die Wandbreite skaliert mit der Grabenbreite
+(`max(16, min(38, w * 0.3))`), sodass auch schmale Gräben plastisch wirken.
+
 - Grabenbreite nach Formel im Level-Parameter-Block, geklemmt auf 92–358 px.
   Weil die Breite mit dem Tempo skaliert, ist die nötige Flugzeit konstant (~0,3–0,42 s von 0,49–0,62 s Sprungzeit).
 - **Erst ab Level 2** sind `min(0.65, 0.3+(level-2)*0.1)` der Gräben **Lavagräben**
@@ -458,6 +466,10 @@ Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
   Level 5: min 848 / avg 1006 px), der Höhenrhythmus mid→ground→high durchläuft, der Bodenanteil
   bei ~32 % liegt und die Benzinbilanz bei 61 % Sammelquote liegt; Level 1 mit sauberem Spiel in
   32 s schaffbar (90 % Restbenzin), Level 5 mit 47 %, Nur-Boden-Spieler verliert 2 Leben
+- Graben-Optik: geprüft, dass die orangen Striche im Graben, die orangen Kantenbalken und die
+  durchgehende Bodenlinie nicht mehr gezeichnet werden, die Tiefenfüllung da ist, Verläufe für
+  Wände und Lippe genutzt werden und normale wie Lavagräben ohne Zeichenfehler durchlaufen
+  (`save`/`restore` balanciert)
 - Abschuss-Klang: geprüft, dass Treffer-Transient (Highpass), Bass 150→58 Hz, Motor-Absturz
   520→96 Hz, Funken 1450/2050 Hz und Quittung 1046 Hz vorhanden sind, ohne Rechteck/Sägezahn,
   Pegel 0,19 (lauter als Sprung/Schuss, leiser als der Einschlag), Verstimmung wirkt, und der Klang
@@ -586,6 +598,10 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 25. Abschuss-Klang aufgewertet: mehrschichtiger Treffer-Sound (Highpass-Transient, Bass-Stoß
     150→58 Hz, Motor-Absturz 520→96 Hz, Funken 1450/2050 Hz, Trümmer-Rauschen, Quittung 1046 Hz)
     statt des bisherigen Rechteck-Platschers, mit Zufalls-Verstimmung
+26. Gräben hübscher und ohne harte Linien: Tiefenverlauf, Lichtsaum an der linken Wand, dunkle
+    rechte Kante, weiche Lippe und Bodenabdunklung; orange Striche im Graben, orange Kantenbalken
+    und die durchgehende Neonlinie über dem Boden entfernt (dort jetzt ein weicher Verlauf plus
+    2 px Biome-Ton bei 20 %). Ungenutztes `glow` aus den Kulissen-Daten entfernt
 
 ---
 

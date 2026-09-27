@@ -84,7 +84,7 @@
         { kind: "hill", baseY: 380, amp: 150, color: "#3a2f5c", period: 900, speed: 0.08 },
         { kind: "hill", baseY: 412, amp: 96, color: "#2b2447", period: 620, speed: 0.16 }
       ],
-      ground: { fill: "#1a1f2e", edge: "#46e0c0", glow: "rgba(70,224,192,0.18)", dash: "rgba(120,150,180,0.35)" },
+      ground: { fill: "#1a1f2e", edge: "#46e0c0", dash: "rgba(120,150,180,0.35)" },
       ambient: null
     },
     {
@@ -96,7 +96,7 @@
         { kind: "dune", baseY: 392, amp: 92, color: "#6b4630", period: 1200, speed: 0.07 },
         { kind: "dune", baseY: 420, amp: 62, color: "#4a3021", period: 820, speed: 0.14 }
       ],
-      ground: { fill: "#2c2219", edge: "#ffb45c", glow: "rgba(255,180,92,0.18)", dash: "rgba(200,160,110,0.35)" },
+      ground: { fill: "#2c2219", edge: "#ffb45c", dash: "rgba(200,160,110,0.35)" },
       ambient: null
     },
     {
@@ -108,7 +108,7 @@
         { kind: "city", baseY: 400, amp: 120, color: "#131b30", period: 260, speed: 0.09 },
         { kind: "city", baseY: 428, amp: 88, color: "#0b1120", period: 210, speed: 0.18 }
       ],
-      ground: { fill: "#101625", edge: "#7fb0ff", glow: "rgba(127,176,255,0.18)", dash: "rgba(140,170,220,0.35)" },
+      ground: { fill: "#101625", edge: "#7fb0ff", dash: "rgba(140,170,220,0.35)" },
       ambient: null
     },
     {
@@ -120,7 +120,7 @@
         { kind: "peak", baseY: 386, amp: 168, color: "#5b7f9c", period: 460, speed: 0.08 },
         { kind: "peak", baseY: 416, amp: 112, color: "#3d5f7c", period: 330, speed: 0.17 }
       ],
-      ground: { fill: "#15212e", edge: "#c9ecff", glow: "rgba(201,236,255,0.2)", dash: "rgba(190,225,245,0.4)" },
+      ground: { fill: "#15212e", edge: "#c9ecff", dash: "rgba(190,225,245,0.4)" },
       ambient: "snow"
     },
     {
@@ -132,7 +132,7 @@
         { kind: "volcano", baseY: 392, amp: 160, color: "#2a1418", period: 700, speed: 0.07 },
         { kind: "peak", baseY: 420, amp: 104, color: "#180c10", period: 300, speed: 0.16 }
       ],
-      ground: { fill: "#1b1013", edge: "#ff7b30", glow: "rgba(255,123,48,0.2)", dash: "rgba(210,140,110,0.35)" },
+      ground: { fill: "#1b1013", edge: "#ff7b30", dash: "rgba(210,140,110,0.35)" },
       ambient: "embers"
     }
   ];
@@ -2495,43 +2495,49 @@
       var x0 = p.x;
       var w = p.w;
 
+      var wall = Math.max(16, Math.min(38, w * 0.3));
+
       ctx.save();
       ctx.beginPath();
-      ctx.rect(x0, GROUND_Y - 4, w, VIEW_H - GROUND_Y + 4);
+      ctx.rect(x0, GROUND_Y - 6, w, VIEW_H - GROUND_Y + 6);
       ctx.clip();
 
-      var g = ctx.createLinearGradient(0, GROUND_Y, 0, VIEW_H);
-      g.addColorStop(0, "#04060b");
-      g.addColorStop(0.45, "#0a1220");
-      g.addColorStop(1, "#17253d");
+      var g = ctx.createLinearGradient(0, GROUND_Y - 6, 0, VIEW_H);
+      g.addColorStop(0, "#03050a");
+      g.addColorStop(0.4, "#070d18");
+      g.addColorStop(1, "#13223c");
       ctx.fillStyle = g;
-      ctx.fillRect(x0, GROUND_Y - 4, w, VIEW_H - GROUND_Y + 4);
+      ctx.fillRect(x0, GROUND_Y - 6, w, VIEW_H - GROUND_Y + 6);
 
-      var leftGlow = ctx.createLinearGradient(x0, 0, x0 + 30, 0);
-      leftGlow.addColorStop(0, "rgba(130, 165, 200, 0.4)");
-      leftGlow.addColorStop(1, "rgba(130, 165, 200, 0)");
-      ctx.fillStyle = leftGlow;
-      ctx.fillRect(x0, GROUND_Y, 30, VIEW_H - GROUND_Y);
+      var lip = ctx.createLinearGradient(0, GROUND_Y - 2, 0, GROUND_Y + 14);
+      lip.addColorStop(0, "rgba(205, 228, 255, 0.16)");
+      lip.addColorStop(1, "rgba(205, 228, 255, 0)");
+      ctx.fillStyle = lip;
+      ctx.fillRect(x0, GROUND_Y - 2, w, 16);
 
-      var rightGlow = ctx.createLinearGradient(x0 + w - 30, 0, x0 + w, 0);
-      rightGlow.addColorStop(0, "rgba(130, 165, 200, 0)");
-      rightGlow.addColorStop(1, "rgba(130, 165, 200, 0.4)");
-      ctx.fillStyle = rightGlow;
-      ctx.fillRect(x0 + w - 30, GROUND_Y, 30, VIEW_H - GROUND_Y);
+      var leftWall = ctx.createLinearGradient(x0, 0, x0 + wall, 0);
+      leftWall.addColorStop(0, "rgba(158, 190, 224, 0.34)");
+      leftWall.addColorStop(0.45, "rgba(120, 152, 190, 0.12)");
+      leftWall.addColorStop(1, "rgba(120, 152, 190, 0)");
+      ctx.fillStyle = leftWall;
+      ctx.fillRect(x0, GROUND_Y, wall, VIEW_H - GROUND_Y);
+
+      var rightWall = ctx.createLinearGradient(x0 + w - wall, 0, x0 + w, 0);
+      rightWall.addColorStop(0, "rgba(12, 20, 32, 0)");
+      rightWall.addColorStop(1, "rgba(12, 20, 32, 0.6)");
+      ctx.fillStyle = rightWall;
+      ctx.fillRect(x0 + w - wall, GROUND_Y, wall, VIEW_H - GROUND_Y);
+
+      var floor = ctx.createLinearGradient(0, VIEW_H - 46, 0, VIEW_H);
+      floor.addColorStop(0, "rgba(4, 7, 12, 0)");
+      floor.addColorStop(1, "rgba(4, 7, 12, 0.9)");
+      ctx.fillStyle = floor;
+      ctx.fillRect(x0, VIEW_H - 46, w, 46);
 
       if (p.lava) {
         drawLavaFill(p, x0, w);
-      } else {
-        ctx.fillStyle = "rgba(255, 145, 70, 0.8)";
-        for (var s = 0; s < w - 12; s += 18) {
-          ctx.fillRect(x0 + s + 5, GROUND_Y + 5, 9, 5);
-        }
       }
       ctx.restore();
-
-      ctx.fillStyle = p.lava ? "rgba(255, 120, 50, 0.95)" : "rgba(255, 165, 95, 0.95)";
-      ctx.fillRect(x0 - 2, GROUND_Y - 4, 4, 9);
-      ctx.fillRect(x0 + w - 2, GROUND_Y - 4, 4, 9);
     }
 
     for (var k = 0; k < game.pits.length; k++) {
@@ -2644,10 +2650,16 @@
     ctx.fillStyle = g;
     ctx.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
 
+    var top = ctx.createLinearGradient(0, GROUND_Y, 0, GROUND_Y + 22);
+    top.addColorStop(0, "rgba(255,255,255,0.14)");
+    top.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = top;
+    ctx.fillRect(0, GROUND_Y, VIEW_W, 22);
+
+    ctx.globalAlpha = 0.2;
     ctx.fillStyle = g0.edge;
-    ctx.fillRect(0, GROUND_Y - 2, VIEW_W, 3);
-    ctx.fillStyle = g0.glow;
-    ctx.fillRect(0, GROUND_Y + 3, VIEW_W, 8);
+    ctx.fillRect(0, GROUND_Y - 1, VIEW_W, 2);
+    ctx.globalAlpha = 1;
 
     ctx.strokeStyle = g0.dash;
     ctx.lineWidth = 2;
