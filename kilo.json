@@ -1,0 +1,10 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "permission": {
+    "bash": {
+      "*": "ask",
+      "cscript*": "allow",
+      "*cscript.exe*": "allow"
+    }
+  }
+}
