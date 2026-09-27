@@ -45,13 +45,17 @@ Neue Gegner/Hindernisse brauchen also nur Code, keine Dateien.
 | In der Luft nochmal | Doppelsprung (mit Shop-Upgrade ein dritter Sprung) |
 | `Enter` / `NumpadEnter` | **Schießen** (nur im laufenden Level); im Shop/Titel/Game-Over = weiter |
 | `1` `2` `3` `4` | Im Shop Artikel kaufen (Klick auf die Zeile geht auch) |
-| `P` / `Esc` | Pause an/aus |
+| `P` / `Esc` | Pause an/aus (in der Pause: `P`/`Leertaste` weiter, `Esc` ins Hauptmenü) |
 | `R` | Lauf sofort neu starten |
 | `M` | Ton an/aus (gespeichert) |
 | `-` / `+` | Lautstärke in 10-%-Schritten (gespeichert) |
 | Klick neben die Shop-Zeilen | Weiter zum nächsten Level |
+| Hauptmenü | `Leertaste`/`Enter`/Klick **SPIELEN** = Lauf starten, `E`/Klick **EINSTELLUNGEN** |
+| Einstellungen | `↑`/`↓` wählt Zeile, `←`/`→` (oder `-`/`+`) ändert den Wert, `Esc`/`Enter` zurück; Klick auf `-`/`+` geht auch |
+| Game Over | `Leertaste` = nochmal, `Esc` = Hauptmenü (Knöpfe anklickbar) |
 | **Handy:** Tippen irgendwo | Springen (Doppelsprung = zweimal tippen) |
 | **Handy:** Feuer-Knopf unten rechts | Schießen, halten feuert dauerhaft |
+| **Handy:** Pause-Knopf unten links | Pause; im Pausenmenü WEITER oder HAUPTMENÜ antippen |
 
 Sprung ist **variabel**: kurz tippen = niedrig (Jump-Cut), halten = maximal hoch.
 Zusätzlich: Input-Buffer 0,13 s und Coyote-Time 0,1 s am Grabenrand.
@@ -250,7 +254,8 @@ Persistenz + Audio + SFX → Helfer (`rr`, `clamp`, `rand`) → Level-/Lebens-Lo
 
 | Zustand | Bedeutung |
 |---|---|
-| `ready` | Titel, Welt scrollt langsam, Roboter läuft ohne Hindernisse |
+| `menu` | Hauptmenü mit **SPIELEN** und **EINSTELLUNGEN**, Welt scrollt langsam im Hintergrund |
+| `settings` | Einstellungen: Lautstärke und Musik in 10-%-Schritten, Zurück-Knopf |
 | `playing` | normales Spiel; Unterzustand `game.dead = true` während der Explosionspause |
 | `paused` | Pause (Blur pausiert automatisch, Ton wird suspendiert) |
 | `shop` | Level geschafft, Shop wartet auf Eingabe (kein Auto-Weiter) |
@@ -305,7 +310,8 @@ Daraus folgen die Hindernishöhen: alles bis 100 px ist einfach, `tower` (132 px
 |---|---|
 | `roborunner.highscore` | bester Punktestand |
 | `roborunner.sound` | `"on"` / `"off"` |
-| `roborunner.volume` | 0 … 1 (Default 0,6) |
+| `roborunner.volume` | Gesamtlautstärke 0 … 1 (Default 0,6) |
+| `roborunner.music` | Musiklautstärke 0 … 1 (Default 0,5) |
 
 Schrott und Upgrades sind **bewusst nicht** dauerhaft (Meta-Progression wurde abgelehnt).
 
@@ -342,9 +348,22 @@ Technik: 16 Schritte pro Takt, `stepDur = 60 / bpm / 4`; ein Vorlauf-Scheduler (
 40 ms per `setInterval`) plant 0,25 s im Voraus über `ctx.currentTime`. Läuft der Kontext durch
 Blur/Suspend hinterher, setzt `musicTick` die Zeit neu (`nextTime < currentTime`) – sonst käme ein
 Schwall nachgeholter Töne. Die Musik hängt an einem eigenen Gain (`music.gain`) hinter dem Master,
-`M` stummschaltet sie also sofort, `-`/`+` regeln sie mit. Start beim ersten Tastendruck, Stopp bei
-Game Over, Neustart mit jedem Lauf. Ohne Audio-API oder ohne `setInterval` passiert schlicht nichts
-(alle Musikfunktionen steigen vorher aus).
+`M` stummschaltet sie also sofort. **Musiklautstärke** ist getrennt regelbar (`music.volume`,
+10-%-Schritte, gespeichert unter `roborunner.music`, 0 % = aus) – per Einstellungsmenü oder `-`/`+`,
+wenn dort die Musikzeile gewählt ist. Start beim ersten Tastendruck, Stopp bei Game Over, Neustart
+mit jedem Lauf (im Hauptmenü läuft der Track von Level 1). Ohne Audio-API oder ohne `setInterval`
+passiert schlicht nichts (alle Musikfunktionen steigen vorher aus).
+
+### Bedienoberfläche (Hauptmenü und Einstellungen)
+
+Beide Bildschirme sind aus klickbaren Buttons gebaut. Die Zeichenfunktionen registrieren jeden Button
+über `uiButton(x, y, w, h, id, label, sub, hot)` in `game.uiButtons` (jeden Frame neu, geleert am
+Anfang von `drawHud`), der Klickpfad läuft über `clickUi()` → `uiAction(id)`. Tasten und Klicks
+landen damit in derselben Aktion (`play`, `settings`, `back`, `menu`, `retry`, `resume`, `pause`,
+`volume±`, `music±`). Der Roboter fährt im Hintergrund weiter (Welt-Tempo 150), gestartet wird er
+nicht mehr durch irgendeinen Klick: im Menü reagieren nur die Buttons und `Leertaste`/`Enter`/`E`.
+Auf Touchgeräten gibt es zusätzlich einen runden **Pause-Knopf unten links** (`PAUSE_BTN`), damit die
+Pause auf dem Handy erreichbar ist.
 
 ---
 
@@ -505,6 +524,10 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     Doppelsprung 560–1380 → 125–410 Hz, Schuss 480–2100 → 115–720 Hz), weichere Wellenformen und
     Hüllkurven, leisere Spitzenpegel, kurze Luft-/Transient-Geräusche und ±3 % Zufalls-Verstimmung;
     `noise()` akzeptiert dafür jetzt einen Filtertyp (`noiseType`)
+21. Hauptmenü mit **SPIELEN** und **EINSTELLUNGEN** (Zustände `menu`/`settings`), klickbare Buttons
+    über `uiButton`/`clickUi`/`uiAction`, eigene Musiklautstärke (`roborunner.music`), Pause- und
+    Game-Over-Menü mit Knöpfen, Pause-Knopf unten links für Touchgeräte; im Menü fährt der Roboter
+    im Hintergrund weiter, gestartet wird nur noch über den Spielen-Knopf (oder Leertaste/Enter)
 
 ---
 

@@ -37,12 +37,14 @@
   var HIGHSCORE_KEY = "roborunner.highscore";
   var SOUND_KEY = "roborunner.sound";
   var VOLUME_KEY = "roborunner.volume";
+  var MUSIC_KEY = "roborunner.music";
   var VOLUME_STEP = 0.1;
   var WARN_FUEL = 12;
 
   var touchMode = ("ontouchstart" in window)
     || (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
   var FIRE_BTN = { x: VIEW_W - 76, y: VIEW_H - 68, r: 40 };
+  var PAUSE_BTN = { x: 52, y: VIEW_H - 48 };
   var fullscreenTried = false;
 
   var canvas = document.getElementById("game");
@@ -238,7 +240,7 @@
   ];
 
   var game = {
-    state: "ready",
+    state: "menu",
     time: 0,
     speed: START_SPEED,
     scroll: 0,
@@ -264,6 +266,8 @@
     scrapAt: 300,
     scrapItems: [],
     fireHeld: false,
+    uiButtons: [],
+    settingsRow: 0,
     fuelMax: FUEL_MAX,
     shield: 0,
     maxJumps: 2,
@@ -550,8 +554,34 @@
     bar: 0,
     nextTime: 0,
     stepDur: 0.144,
-    volume: 0.5
+    volume: readMusicVolume()
   };
+
+  function readMusicVolume() {
+    try {
+      var raw = parseFloat(window.localStorage.getItem(MUSIC_KEY));
+      return isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 0.5;
+    } catch (e) {
+      return 0.5;
+    }
+  }
+
+  function writeMusicVolume(value) {
+    try {
+      window.localStorage.setItem(MUSIC_KEY, String(value));
+    } catch (e) {
+      /* storage nicht verfuegbar */
+    }
+  }
+
+  function musicVolumeStep(dir) {
+    music.volume = clamp(music.volume + dir * 0.1, 0, 1);
+    writeMusicVolume(music.volume);
+    musicApplyVolume();
+    game.notice = "MUSIK " + Math.round(music.volume * 100) + "%";
+    game.noticeTime = 1.2;
+    tone({ freq: 660, duration: 0.06, type: "triangle", gain: 0.1 });
+  }
 
   function musicNoteFreq(semitone) {
     return 440 * Math.pow(2, (semitone - 69) / 12);
@@ -1827,7 +1857,7 @@
     var worldSpeed = 0;
     if (game.state === "playing") {
       worldSpeed = game.speed;
-    } else if (game.state === "ready") {
+    } else if (game.state === "menu" || game.state === "settings") {
       worldSpeed = 150;
     }
 
@@ -3693,6 +3723,7 @@
   }
 
   function drawHud() {
+    game.uiButtons.length = 0;
     ctx.textBaseline = "top";
 
     ctx.textAlign = "left";
@@ -3783,6 +3814,29 @@
 
     ctx.textAlign = "left";
 
+    if (touchMode && game.state === "playing" && !game.dead) {
+      game.uiButtons.push({
+        x: PAUSE_BTN.x - 26,
+        y: PAUSE_BTN.y - 26,
+        w: 52,
+        h: 52,
+        id: "pause"
+      });
+      ctx.save();
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = "rgba(10, 16, 26, 0.55)";
+      ctx.beginPath();
+      ctx.arc(PAUSE_BTN.x, PAUSE_BTN.y, 22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(200, 220, 240, 0.5)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "#cfe0f0";
+      ctx.fillRect(PAUSE_BTN.x - 7, PAUSE_BTN.y - 9, 5, 18);
+      ctx.fillRect(PAUSE_BTN.x + 2, PAUSE_BTN.y - 9, 5, 18);
+      ctx.restore();
+    }
+
     if (touchMode) {
       var readyToFire = game.shotCooldown <= 0 && game.state === "playing" && !game.dead;
       ctx.save();
@@ -3815,7 +3869,9 @@
     }
 
     if (game.state === "paused") {
-      panel("PAUSE", "Leertaste oder P zum Weiterspielen");
+      panel("PAUSE", "P oder Leertaste = weiter   ·   Esc = Hauptmenü", null);
+      uiButton(VIEW_W / 2 - 230, 322, 210, 50, "resume", "WEITER", "Leertaste");
+      uiButton(VIEW_W / 2 + 20, 322, 210, 50, "menu", "HAUPTMENÜ", "Esc");
     }
   }
 
@@ -3972,23 +4028,10 @@
   }
 
   function drawOverlay() {
-    if (game.state === "ready") {
-      var intro = [
-        "Leertaste / Tippen = Springen, in der Luft nochmal = Doppelsprung",
-        "Benzin kommt nur aus Kanistern - viele hängen hoch",
-        "Hohe Türme schaffst du nur mit Doppelsprung",
-        "Lavagräben spucken Tropfen - im richtigen Moment springen",
-        "Gegner greifen an - mit ENTER schießt du zurück",
-        "Leben bleiben über die Level, selten gibt es Ersatz",
-        "Schrott sammeln und im Shop zwischen den Leveln ausgeben"
-      ];
-      if (touchMode) {
-        intro.push("Handy: Quer halten, Feuer-Knopf unten rechts");
-        intro.push("Vollbild: \"Zum Home-Bildschirm\" hinzufügen");
-      } else {
-        intro.push("Ton: M = an/aus, -/+ = Lautstärke");
-      }
-      panel("ROBO RUNNER", intro, "LEERTASTE ODER KLICK ZUM STARTEN");
+    if (game.state === "menu") {
+      drawMainMenu();
+    } else if (game.state === "settings") {
+      drawSettings();
     } else if (game.state === "shop") {
       drawShop();
     } else if (game.state === "over") {
@@ -4002,7 +4045,9 @@
         reason + " - Level " + game.level,
         "Punkte: " + Math.floor(game.score) + "   ·   Rekord: " + game.highscore,
         "Leben: " + game.lives + "   ·   Schrott: " + game.scrap + "   ·   Benzin: " + Math.round(game.fuel) + "%"
-      ], "LEERTASTE / KLICK = NOCHMAL (R)");
+      ], null);
+      uiButton(VIEW_W / 2 - 230, 348, 210, 50, "retry", "NOCHMAL", "Leertaste");
+      uiButton(VIEW_W / 2 + 20, 348, 210, 50, "menu", "HAUPTMENÜ", "Esc");
     }
   }
 
@@ -4131,11 +4176,167 @@
     return s;
   }
 
-  function onJumpDown() {
-    if (game.state === "ready" || game.state === "over") {
-      startGame();
-      return;
+  function uiButton(x, y, w, h, id, label, sub, hot) {
+    game.uiButtons.push({ x: x, y: y, w: w, h: h, id: id });
+
+    ctx.fillStyle = hot ? "rgba(70, 224, 192, 0.22)" : "rgba(255,255,255,0.07)";
+    rr(ctx, x, y, w, h, 10);
+    ctx.fill();
+    ctx.strokeStyle = hot ? "rgba(70, 224, 192, 0.8)" : "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "700 20px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = hot ? "#eaffff" : "#dfe8f2";
+    ctx.fillText(label, x + w / 2, y + h / 2 - (sub ? 8 : 0));
+    if (sub) {
+      ctx.font = "500 12px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = "rgba(255,255,255,0.45)";
+      ctx.fillText(sub, x + w / 2, y + h / 2 + 12);
     }
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+  }
+
+  function clickUi(viewX, viewY) {
+    for (var i = game.uiButtons.length - 1; i >= 0; i--) {
+      var b = game.uiButtons[i];
+      if (viewX >= b.x && viewX <= b.x + b.w && viewY >= b.y && viewY <= b.y + b.h) {
+        uiAction(b.id);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function goToMenu() {
+    startGame();
+    game.state = "menu";
+  }
+
+  function uiAction(id) {
+    if (id === "play" || id === "retry") {
+      startGame();
+    } else if (id === "settings") {
+      game.settingsRow = 0;
+      game.state = "settings";
+    } else if (id === "back" || id === "menu") {
+      goToMenu();
+    } else if (id === "resume") {
+      if (game.state === "paused") {
+        game.state = "playing";
+      }
+    } else if (id === "pause") {
+      if (game.state === "playing" && !game.dead) {
+        game.state = "paused";
+        game.jumpHeld = false;
+        game.fireHeld = false;
+      }
+    } else if (id === "volume-" || id === "volume+") {
+      audioVolumeStep(id === "volume+" ? 1 : -1);
+    } else if (id === "music-" || id === "music+") {
+      musicVolumeStep(id === "music+" ? 1 : -1);
+    }
+  }
+
+  function drawMainMenu() {
+    var cx = VIEW_W / 2;
+
+    ctx.fillStyle = "rgba(8, 12, 22, 0.55)";
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "800 62px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "#eef4fb";
+    ctx.fillText("ROBO RUNNER", cx, 106);
+    ctx.font = "600 15px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillText("REKORD " + pad(game.highscore), cx, 150);
+
+    uiButton(cx - 150, 190, 300, 58, "play", "SPIELEN", "Leertaste / Klick");
+    uiButton(cx - 150, 260, 300, 58, "settings", "EINSTELLUNGEN", "Taste E");
+
+    ctx.textAlign = "center";
+    ctx.font = "500 14px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    var lines = [
+      "Springen: Leertaste/Klick - in der Luft nochmal für Doppelsprung",
+      "Schießen: Enter - Pause: P/Esc - Ton: M, Lautstärke: - / +",
+      "Benzin und Schrott sammeln, am Levelende durchs Portal"
+    ];
+    if (touchMode) {
+      lines[1] = "Schießen: Feuer-Knopf unten rechts - Handy quer halten";
+      lines.push("Vollbild: \"Zum Home-Bildschirm\" hinzufügen");
+    }
+    for (var i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], cx, 366 + i * 24);
+    }
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+  }
+
+  function drawSettings() {
+    var cx = VIEW_W / 2;
+    var w = 560;
+    var h = 306;
+    var x = cx - w / 2;
+    var y = 92;
+
+    ctx.fillStyle = "rgba(8, 12, 22, 0.9)";
+    rr(ctx, x, y, w, h, 20);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(70, 224, 192, 0.55)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "800 30px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "#eef4fb";
+    ctx.fillText("EINSTELLUNGEN", cx, y + 44);
+
+    var rows = [
+      { id: "volume", label: "Lautstärke", value: Math.round(audio.volume * 100) + "%", warn: !audio.enabled },
+      { id: "music", label: "Musik", value: Math.round(music.volume * 100) + "%", warn: music.volume <= 0 }
+    ];
+
+    for (var i = 0; i < rows.length; i++) {
+      var ry = y + 88 + i * 62;
+      var hot = game.settingsRow === i;
+      if (hot) {
+        ctx.strokeStyle = "rgba(70, 224, 192, 0.45)";
+        ctx.lineWidth = 2;
+        rr(ctx, x + 14, ry - 8, w - 28, 60, 12);
+        ctx.stroke();
+      }
+
+      ctx.textAlign = "left";
+      ctx.font = "700 20px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = hot ? "#eaffff" : "#cfd9e6";
+      ctx.fillText(rows[i].label, x + 32, ry + 22);
+
+      uiButton(x + w - 208, ry, 44, 44, rows[i].id + "-", "-");
+      ctx.textAlign = "center";
+      ctx.font = "700 18px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = rows[i].warn ? "#ff8a6a" : "#ffd166";
+      ctx.fillText(rows[i].value, x + w - 148, ry + 22);
+      uiButton(x + w - 88, ry, 44, 44, rows[i].id + "+", "+");
+    }
+
+    ctx.textAlign = "center";
+    ctx.font = "500 13px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillText("Pfeiltasten: auswählen und ändern", cx, y + h - 78);
+
+    uiButton(cx - 110, y + h - 62, 220, 46, "back", "ZURÜCK", "Esc");
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+  }
+
+  function onJumpDown() {
     if (game.state === "shop") {
       if (game.shopLock <= 0) {
         startLevel(game.level + 1);
@@ -4165,6 +4366,13 @@
     }
     audioInit();
     var code = e.code;
+    var isFire = code === "Enter" || code === "NumpadEnter";
+    var isJump = code === "Space" || code === "ArrowUp" || code === "KeyW";
+    var isUp = code === "ArrowUp" || code === "KeyW";
+    var isDown = code === "ArrowDown" || code === "KeyS";
+    var isLeft = code === "ArrowLeft" || code === "KeyA";
+    var isRight = code === "ArrowRight" || code === "KeyD";
+
     if (code === "KeyM") {
       e.preventDefault();
       audioToggle();
@@ -4172,25 +4380,19 @@
     }
     if (code === "Minus" || code === "NumpadSubtract") {
       e.preventDefault();
-      audioVolumeStep(-1);
+      if (game.state === "settings" && game.settingsRow === 1) {
+        musicVolumeStep(-1);
+      } else {
+        audioVolumeStep(-1);
+      }
       return;
     }
     if (code === "Equal" || code === "NumpadAdd") {
       e.preventDefault();
-      audioVolumeStep(1);
-      return;
-    }
-    if (code === "Space" || code === "ArrowUp" || code === "KeyW") {
-      e.preventDefault();
-      onJumpDown();
-      return;
-    }
-    if (code === "KeyP" || code === "Escape") {
-      e.preventDefault();
-      if (game.state === "playing") {
-        game.state = "paused";
-      } else if (game.state === "paused") {
-        game.state = "playing";
+      if (game.state === "settings" && game.settingsRow === 1) {
+        musicVolumeStep(1);
+      } else {
+        audioVolumeStep(1);
       }
       return;
     }
@@ -4199,24 +4401,92 @@
       startGame();
       return;
     }
-    if (code === "Enter" || code === "NumpadEnter") {
+
+    if (game.state === "settings") {
       e.preventDefault();
-      if (game.state === "shop" || game.state === "ready" || game.state === "over") {
-        onJumpDown();
+      if (isUp) {
+        game.settingsRow = (game.settingsRow + 2) % 3;
+      } else if (isDown) {
+        game.settingsRow = (game.settingsRow + 1) % 3;
+      } else if (isLeft) {
+        if (game.settingsRow === 0) { audioVolumeStep(-1); }
+        else if (game.settingsRow === 1) { musicVolumeStep(-1); }
+      } else if (isRight) {
+        if (game.settingsRow === 0) { audioVolumeStep(1); }
+        else if (game.settingsRow === 1) { musicVolumeStep(1); }
       } else {
-        fireShot();
+        goToMenu();
       }
       return;
     }
-    if (game.state === "shop" && game.shopLock <= 0) {
-      var n = -1;
-      if (code === "Digit1" || code === "Numpad1") { n = 0; }
-      else if (code === "Digit2" || code === "Numpad2") { n = 1; }
-      else if (code === "Digit3" || code === "Numpad3") { n = 2; }
-      else if (code === "Digit4" || code === "Numpad4") { n = 3; }
-      if (n >= 0) {
+
+    if (game.state === "menu") {
+      e.preventDefault();
+      if (isJump || isFire) {
+        startGame();
+      } else if (code === "KeyE") {
+        game.settingsRow = 0;
+        game.state = "settings";
+      }
+      return;
+    }
+
+    if (game.state === "over") {
+      e.preventDefault();
+      if (code === "Escape") {
+        goToMenu();
+      } else if (isJump || isFire) {
+        startGame();
+      }
+      return;
+    }
+
+    if (game.state === "paused") {
+      e.preventDefault();
+      if (code === "Escape") {
+        goToMenu();
+      } else if (code === "KeyP" || isJump || isFire) {
+        game.state = "playing";
+      }
+      return;
+    }
+
+    if (game.state === "shop") {
+      if (isJump || isFire) {
         e.preventDefault();
-        buyShopItem(n);
+        onJumpDown();
+        return;
+      }
+      if (game.shopLock <= 0) {
+        var n = -1;
+        if (code === "Digit1" || code === "Numpad1") { n = 0; }
+        else if (code === "Digit2" || code === "Numpad2") { n = 1; }
+        else if (code === "Digit3" || code === "Numpad3") { n = 2; }
+        else if (code === "Digit4" || code === "Numpad4") { n = 3; }
+        if (n >= 0) {
+          e.preventDefault();
+          buyShopItem(n);
+        }
+      }
+      return;
+    }
+
+    if (game.state === "playing") {
+      if (isJump) {
+        e.preventDefault();
+        onJumpDown();
+        return;
+      }
+      if (isFire) {
+        e.preventDefault();
+        fireShot();
+        return;
+      }
+      if (code === "KeyP" || code === "Escape") {
+        e.preventDefault();
+        game.state = "paused";
+        game.jumpHeld = false;
+        game.fireHeld = false;
       }
     }
   });
@@ -4233,10 +4503,11 @@
     audioInit();
     requestFullscreen();
 
+    var p = pointerToView(e);
+
     if (touchMode && game.state === "playing" && !game.dead) {
-      var tp = pointerToView(e);
-      var ddx = tp.x - FIRE_BTN.x;
-      var ddy = tp.y - FIRE_BTN.y;
+      var ddx = p.x - FIRE_BTN.x;
+      var ddy = p.y - FIRE_BTN.y;
       if (ddx * ddx + ddy * ddy <= FIRE_BTN.r * FIRE_BTN.r) {
         game.fireHeld = true;
         fireShot();
@@ -4245,7 +4516,6 @@
     }
 
     if (game.state === "shop" && game.shopLock <= 0) {
-      var p = pointerToView(e);
       for (var i = 0; i < game.shopRows.length; i++) {
         var r = game.shopRows[i];
         if (p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) {
@@ -4254,6 +4524,15 @@
         }
       }
     }
+
+    if (clickUi(p.x, p.y)) {
+      return;
+    }
+
+    if (game.state === "menu" || game.state === "settings") {
+      return;
+    }
+
     onJumpDown();
   });
 
@@ -4313,6 +4592,9 @@
     render();
     window.requestAnimationFrame(frame);
   }
+
+  startGame();
+  game.state = "menu";
 
   resize();
   window.requestAnimationFrame(frame);
