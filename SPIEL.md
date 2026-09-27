@@ -55,7 +55,8 @@ Zusätzlich: Input-Buffer 0,13 s und Coyote-Time 0,1 s am Grabenrand.
 ## 4. Spielablauf
 
 Endlos-Runner: der Roboter steht bei `x = 168` fest, die Welt scrollt von rechts nach links.
-Ein Level endet an einem Ziel-Gate; dort öffnet sich der Shop, dann folgt das nächste Level.
+Ein Level endet an einem **Portal** (früher ein Ziel-Gate); beim Durchgang wird der Roboter
+ausgeblendet, es gibt Blitz, Schockwellen und einen eigenen Sound, dann öffnet sich der Shop.
 
 ### Level-Parameter
 
@@ -85,6 +86,25 @@ Chancen ab Level 2 (gedeckelt): Turm `min(0.3, 0.12+(level-2)*0.04)` ·
 Presse `min(0.35, 0.14+(level-2)*0.05)` · Doppelhindernis `min(0.32, 0.1+(level-2)*0.05)` ·
 Lava `min(0.65, 0.3+(level-2)*0.1)`.
 Level 1 startet außerdem mit 2,4 s Vorlauf bis zum ersten Hindernis statt 1,2 s.
+
+### Kulissen pro Level
+
+Jedes Level hat eine eigene Hintergrundkulisse (`BIOMES`-Array, Zugriff über `biome()`;
+nach Level 5 wiederholt es sich). Die Kulisse steuert Himmelsverlauf, Himmelskörper,
+Sterne, zwei Parallax-Ebenen, die Bodenfarben und einen Umgebungseffekt:
+
+| Level | Kulisse | Himmel | Himmelskörper | Parallax-Ebenen | Bodenkante | Effekt |
+|---|---|---|---|---|---|---|
+| 1 | DAEMMERUNG | Abendblau → Violett → Orange | Sonne | sanfte Hügel (Sinuskurve) | Türkis | – |
+| 2 | WUESTE | Violett → Sand | große Sonne | Dünen (flache Sinuskurve) | Orange | – |
+| 3 | NACHTSTADT | fast schwarz → Mitternachtsblau | Mond | Silhouetten-Stadt mit erleuchteten Fenstern | Blau | – |
+| 4 | EISFELD | Nachtblau → Eisblau → Weiß | blasse Wintersonne | Berggipfel (Sägezahn) | Eisweiß | Schneefall |
+| 5 | VULKAN | Schwarz → Glutrot | rotglühender Feuerball | Vulkan mit leuchtendem Krater + Gipfel | Glutorange | aufsteigende Glut |
+
+Die Ebenen-Kulissen kennen vier Formen: `hill`, `dune`, `city` (Rechtecke mit Fenstern), `peak`
+(Sägezahn) und `volcano` (Kegel mit abgeflachtem Krater). Schnee und Glut sind zustandslos aus
+`hash01(i)` + `game.time` berechnet, brauchen also keine Partikelverwaltung.
+Der HUD-Leveltitel zeigt den Kulissennamen mit an (`LEVEL 3 · NACHTSTADT`).
 
 ### Punktestand
 
@@ -240,8 +260,9 @@ Eingabe wird über `game.jumpBuffer` (Springen), `game.shotCooldown` (Schießen)
 
 ### Render-Reihenfolge (Welt-Layer)
 
-Himmel → Hügel → Gräben inkl. Lava+Tropfen → Boden (segmentiert, damit Gräben echte Lücken sind) →
-Ziel-Gate → Kanister → Ersatz-Roboter → Schrott → Hindernisse → Gegner → Gegnerkugeln → Spielerschüsse →
+Himmel (Kulisse) → Kulissen-Hügel → Umgebungseffekt (Schnee/Glut) → Gräben inkl. Lava+Tropfen →
+Boden (segmentiert, damit Gräben echte Lücken sind) →
+Portal → Kanister → Ersatz-Roboter → Schrott → Hindernisse → Gegner → Gegnerkugeln → Spielerschüsse →
 Partikel → Blasts → Labels → Roboter → HUD → Overlays → Vignette.
 
 ### Koordinaten
@@ -344,6 +365,9 @@ Windows-JScript-Interpreter `cscript`, der `game.js` mit gestubbten Browser-APIs
 
 Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
 
+- Kulissen/Portal: 5 verschiedene Kulissennamen im HUD (Level 6 wiederholt Level 1), alle fünf
+  inkl. Schnee/Glut fehlerfrei gerendert, Portal beendet das Level mit 3 Effekten, Roboter
+  ausgeblendet, Shop erscheint, in Level 2 ist der Roboter wieder sichtbar
 - Level-Dichte: gemessen über je 50 s pro Level steigt die Zahl der Hindernisse+Gegner
   34 → 75 → 93 → 137 (Level 1 bis 5), Spawnabstand 2,42 s → 1,06 s; Level 1 ohne Türme/Pressen/Lava
   und ohne Gegner in der ersten Hälfte; erstes Hindernis in Level 1 erst nach 2,4 s;
@@ -373,7 +397,8 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
   Weltbewegung und Gegner sind aber an `state === "playing"` gebunden.
 - Während der Explosionspause steht die Welt komplett (gewollt, das ist der Impact).
 - Der Roboter bleibt im Game-Over ausgeblendet (`robot.destroyed`), weil er explodiert ist.
-- Der Zielbalken im HUD ist `distance / levelLength`; das Gate wird aus dem Restweg berechnet, driftet also nicht.
+- Der Zielbalken im HUD ist `distance / levelLength`; die Portalposition wird aus dem Restweg
+  berechnet (`portalX = robot.x + (levelLength - distance)`), driftet also nicht.
 - Git: nur ein Commit („Robo Runner: …“, `1da8ba1`) vom Zeitpunkt vor allen späteren Features;
   Schrott, Shop, Gegner, Explosionen, Schießen sind noch **nicht committet**.
 
@@ -412,6 +437,9 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 13. Level 1 entschärft: Hindernistakt und Sonderchancen sind jetzt level- statt tempoabhängig,
     damit die Anzahl der Hindernisse pro Level klar steigt (Level 1 ohne Türme/Pressen/Lava,
     Gegner dort erst ab der Levelhälfte und nur Krabbler, 2,4 s Anlauf statt 1,2 s)
+14. Fünf verschiedene Hintergrundkulissen (Dämmerung, Wüste, Nachtstadt, Eisfeld, Vulkan) inklusive
+    Schnee- und Glut-Effekt; Ziel-Gate durch ein animiertes Portal ersetzt, in das der Roboter
+    sichtbar hineingeht (`gateX` → `portalX`)
 
 ---
 

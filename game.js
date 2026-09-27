@@ -66,6 +66,69 @@
   var SHOT_COOLDOWN = 0.26;
   var SHOT_SCORE = 25;
 
+  var BIOMES = [
+    {
+      name: "DAEMMERUNG",
+      sky: ["#141d3d", "#33406f", "#8c5a76", "#d98a5a"],
+      stars: { count: 26, alpha: 0.55, tilt: 0.1 },
+      orb: { x: 700, y: 300, r: 46, color: "#ffd9a0", glow: ["rgba(255,214,150,0.95)", "rgba(255,160,96,0.35)", "rgba(255,130,80,0)"] },
+      layers: [
+        { kind: "hill", baseY: 380, amp: 150, color: "#3a2f5c", period: 900, speed: 0.08 },
+        { kind: "hill", baseY: 412, amp: 96, color: "#2b2447", period: 620, speed: 0.16 }
+      ],
+      ground: { fill: "#1a1f2e", edge: "#46e0c0", glow: "rgba(70,224,192,0.18)", dash: "rgba(120,150,180,0.35)" },
+      ambient: null
+    },
+    {
+      name: "WUESTE",
+      sky: ["#2b1f45", "#7d4a5e", "#d9844a", "#f2cd84"],
+      stars: { count: 12, alpha: 0.3, tilt: 0.08 },
+      orb: { x: 250, y: 210, r: 60, color: "#ffe3a0", glow: ["rgba(255,226,160,0.9)", "rgba(255,170,90,0.3)", "rgba(255,150,70,0)"] },
+      layers: [
+        { kind: "dune", baseY: 392, amp: 92, color: "#6b4630", period: 1200, speed: 0.07 },
+        { kind: "dune", baseY: 420, amp: 62, color: "#4a3021", period: 820, speed: 0.14 }
+      ],
+      ground: { fill: "#2c2219", edge: "#ffb45c", glow: "rgba(255,180,92,0.18)", dash: "rgba(200,160,110,0.35)" },
+      ambient: null
+    },
+    {
+      name: "NACHTSTADT",
+      sky: ["#04060d", "#0a1124", "#152146", "#283a63"],
+      stars: { count: 64, alpha: 0.85, tilt: 0.12 },
+      orb: { x: 770, y: 130, r: 32, color: "#e8f0ff", glow: ["rgba(220,235,255,0.75)", "rgba(150,190,255,0.22)", "rgba(120,160,255,0)"] },
+      layers: [
+        { kind: "city", baseY: 400, amp: 120, color: "#131b30", period: 260, speed: 0.09 },
+        { kind: "city", baseY: 428, amp: 88, color: "#0b1120", period: 210, speed: 0.18 }
+      ],
+      ground: { fill: "#101625", edge: "#7fb0ff", glow: "rgba(127,176,255,0.18)", dash: "rgba(140,170,220,0.35)" },
+      ambient: null
+    },
+    {
+      name: "EISFELD",
+      sky: ["#0c2237", "#215173", "#6aa3c6", "#cfeaf7"],
+      stars: { count: 22, alpha: 0.45, tilt: 0.1 },
+      orb: { x: 180, y: 150, r: 38, color: "#f2fbff", glow: ["rgba(240,250,255,0.8)", "rgba(180,220,255,0.28)", "rgba(150,200,255,0)"] },
+      layers: [
+        { kind: "peak", baseY: 386, amp: 168, color: "#5b7f9c", period: 460, speed: 0.08 },
+        { kind: "peak", baseY: 416, amp: 112, color: "#3d5f7c", period: 330, speed: 0.17 }
+      ],
+      ground: { fill: "#15212e", edge: "#c9ecff", glow: "rgba(201,236,255,0.2)", dash: "rgba(190,225,245,0.4)" },
+      ambient: "snow"
+    },
+    {
+      name: "VULKAN",
+      sky: ["#080409", "#26090f", "#5e1a12", "#ab3a18"],
+      stars: { count: 30, alpha: 0.6, tilt: 0.1 },
+      orb: { x: 520, y: 330, r: 56, color: "#ff8a3c", glow: ["rgba(255,150,70,0.85)", "rgba(255,90,40,0.3)", "rgba(200,50,20,0)"] },
+      layers: [
+        { kind: "volcano", baseY: 392, amp: 160, color: "#2a1418", period: 700, speed: 0.07 },
+        { kind: "peak", baseY: 420, amp: 104, color: "#180c10", period: 300, speed: 0.16 }
+      ],
+      ground: { fill: "#1b1013", edge: "#ff7b30", glow: "rgba(255,123,48,0.2)", dash: "rgba(210,140,110,0.35)" },
+      ambient: "embers"
+    }
+  ];
+
   var ENEMY_TYPES = [
     { id: "crawler", w: 46, h: 38, weight: 42 },
     { id: "drone", w: 42, h: 28, weight: 34 },
@@ -113,7 +176,7 @@
     invuln: 0,
     notice: "",
     noticeTime: 0,
-    gateX: VIEW_W,
+    portalX: VIEW_W,
     spawnTime: 0.9,
     canAt: 180,
     dead: false,
@@ -159,6 +222,7 @@
     vy: 0,
     onGround: true,
     destroyed: false,
+    hidden: false,
     jumps: 0,
     wheel: 0,
     blink: 1.6,
@@ -422,6 +486,12 @@
     }
   }
 
+  function sfxPortal() {
+    tone({ freq: 420, freqEnd: 1500, duration: 0.35, type: "sine", gain: 0.16 });
+    tone({ freq: 1200, freqEnd: 400, duration: 0.3, type: "triangle", gain: 0.12, delay: 0.12 });
+    noise(0.4, 0.22, 3200);
+  }
+
   function sfxLevelClear() {
     var notes = [523, 659, 784, 1046];
     for (var i = 0; i < notes.length; i++) {
@@ -483,6 +553,7 @@
     robot.vy = 0;
     robot.onGround = true;
     robot.destroyed = false;
+    robot.hidden = false;
     robot.jumps = 0;
     robot.tilt = 0;
   }
@@ -606,7 +677,7 @@
       : -1;
     game.notice = "LEVEL " + n;
     game.noticeTime = 1.6;
-    game.gateX = robot.x + game.levelLength;
+    game.portalX = robot.x + game.levelLength;
     game.lowFuelWarned = false;
     game.warnTimer = 0;
     audio.combo = 0;
@@ -643,11 +714,19 @@
     game.shopLock = SHOP_LOCK_TIME;
     game.shopMessage = "SCHROTT: " + game.scrap;
     game.shopMessageTime = 2;
-    game.flash = 0.2;
+    game.flash = 0.45;
     game.jumpHeld = false;
     resetRobot();
+
+    var px = game.portalX + 42;
+    var py = GROUND_Y - 108;
+    game.blasts.push({ x: px, y: py, life: 0.45, max: 0.45, r0: 18, r1: 150, color: "#ffffff", ring: false });
+    game.blasts.push({ x: px, y: py, life: 0.6, max: 0.6, r0: 26, r1: 240, color: "#7fe6ff", ring: true });
+    game.blasts.push({ x: px, y: py, life: 0.35, max: 0.35, r0: 10, r1: 90, color: "#46e0c0", ring: false });
+    robot.hidden = true;
+    sfxPortal();
     sfxLevelClear();
-    burst(robot.x + ROBOT_W / 2, robot.y - ROBOT_H, 30, ["#ffd166", "#46e0c0", "#9fe8ff"]);
+    burst(px, py, 30, ["#ffd166", "#46e0c0", "#9fe8ff"]);
     if (game.score > game.highscore) {
       game.highscore = Math.floor(game.score);
       game.bestThisRun = true;
@@ -1478,7 +1557,7 @@
           sfxWarning();
         }
       }
-      game.gateX = robot.x + (game.levelLength - game.distance);
+      game.portalX = robot.x + (game.levelLength - game.distance);
 
       audio.comboTimer -= dt;
       if (audio.comboTimer <= 0) {
@@ -1823,9 +1902,10 @@
 
     drawSky();
     drawHills();
+    drawAmbient();
     drawPits();
     drawGround();
-    drawGate();
+    drawPortal();
     drawCans();
     drawSpares();
     drawScrapItems();
@@ -1856,62 +1936,172 @@
     ctx.restore();
   }
 
+  function biome() {
+    return BIOMES[(game.level - 1) % BIOMES.length];
+  }
+
+  function hash01(n) {
+    var v = Math.sin(n * 12.9898) * 43758.5453;
+    return v - Math.floor(v);
+  }
+
   function drawSky() {
+    var b = biome();
     var g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
-    g.addColorStop(0, "#141d3d");
-    g.addColorStop(0.45, "#33406f");
-    g.addColorStop(0.78, "#8c5a76");
-    g.addColorStop(1, "#d98a5a");
+    g.addColorStop(0, b.sky[0]);
+    g.addColorStop(0.45, b.sky[1]);
+    g.addColorStop(0.78, b.sky[2]);
+    g.addColorStop(1, b.sky[3]);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, VIEW_W, GROUND_Y);
 
-    var sunY = 300;
-    var glow = ctx.createRadialGradient(700, sunY, 8, 700, sunY, 150);
-    glow.addColorStop(0, "rgba(255, 214, 150, 0.95)");
-    glow.addColorStop(0.35, "rgba(255, 160, 96, 0.35)");
-    glow.addColorStop(1, "rgba(255, 130, 80, 0)");
+    var orb = b.orb;
+    var orbR = orb.r * 3.2;
+    var glow = ctx.createRadialGradient(orb.x, orb.y, 8, orb.x, orb.y, orbR);
+    glow.addColorStop(0, orb.glow[0]);
+    glow.addColorStop(0.35, orb.glow[1]);
+    glow.addColorStop(1, orb.glow[2]);
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(700, sunY, 150, 0, Math.PI * 2);
+    ctx.arc(orb.x, orb.y, orbR, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = "#ffd9a0";
+    ctx.fillStyle = orb.color;
     ctx.beginPath();
-    ctx.arc(700, sunY, 46, 0, Math.PI * 2);
+    ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    var stars = 26;
-    for (var i = 0; i < stars; i++) {
+    if (b.ambient === "embers") {
+      ctx.fillStyle = "rgba(255, 120, 50, 0.5)";
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.r * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = "rgba(255,255,255," + b.stars.alpha + ")";
+    for (var i = 0; i < b.stars.count; i++) {
       var sx = (i * 137.5) % VIEW_W;
-      var sy = (i * 53.7) % 170;
+      var sy = (i * 53.7) % (180 + b.stars.tilt * 300);
       var a = 0.15 + 0.5 * Math.abs(Math.sin(game.time * 1.4 + i));
-      ctx.globalAlpha = a * (1 - sy / 220);
+      ctx.globalAlpha = a * (1 - sy / 240) * b.stars.alpha;
       ctx.fillRect(sx, sy, 2, 2);
     }
     ctx.globalAlpha = 1;
   }
 
   function drawHills() {
-    hills(game.scroll * 0.08, 380, 150, "#3a2f5c", 900);
-    hills(game.scroll * 0.16, 412, 96, "#2b2447", 620);
+    var b = biome();
+    for (var i = 0; i < b.layers.length; i++) {
+      drawBackdropLayer(b.layers[i], game.scroll * b.layers[i].speed);
+    }
   }
 
-  function hills(offset, baseY, amp, color, period) {
-    ctx.fillStyle = color;
+  function drawBackdropLayer(layer, offset) {
+    ctx.fillStyle = layer.color;
+
+    if (layer.kind === "city") {
+      var step = 46;
+      var startIndex = Math.floor(offset / step) - 1;
+      ctx.beginPath();
+      ctx.moveTo(0, VIEW_H);
+      for (var i = 0; i <= VIEW_W / step + 2; i++) {
+        var idx = startIndex + i;
+        var bx = idx * step - offset;
+        var h = layer.amp * (0.25 + hash01(idx * 1.7) * 0.75);
+        ctx.lineTo(bx, layer.baseY - h);
+        ctx.lineTo(bx + step - 6, layer.baseY - h);
+      }
+      ctx.lineTo(VIEW_W, VIEW_H);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(255, 220, 150, 0.5)";
+      for (var k = 0; k <= VIEW_W / step + 2; k++) {
+        var idx2 = startIndex + k;
+        var bx2 = idx2 * step - offset;
+        var h2 = layer.amp * (0.25 + hash01(idx2 * 1.7) * 0.75);
+        for (var wy = 0; wy < 3; wy++) {
+          for (var wx = 0; wx < 2; wx++) {
+            if (hash01(idx2 * 7.3 + wy * 3.1 + wx) > 0.55) {
+              ctx.fillRect(bx2 + 10 + wx * 16, layer.baseY - h2 + 14 + wy * 22, 7, 9);
+            }
+          }
+        }
+      }
+      return;
+    }
+
     ctx.beginPath();
     ctx.moveTo(0, VIEW_H);
-    ctx.lineTo(0, baseY);
-    var step = 30;
-    for (var x = 0; x <= VIEW_W + step; x += step) {
+    ctx.lineTo(0, layer.baseY);
+    var step2 = 26;
+    for (var x = 0; x <= VIEW_W + step2; x += step2) {
       var worldX = x + offset;
-      var y = baseY - amp * (0.5 + 0.5 * Math.sin(worldX / period * Math.PI * 2)) * (0.6 + 0.4 * Math.sin(worldX / (period * 0.37)));
-      y = clamp(y, baseY - amp * 1.5, baseY);
+      var y;
+      if (layer.kind === "dune") {
+        y = layer.baseY - layer.amp * (0.5 + 0.5 * Math.sin(worldX / layer.period * Math.PI * 2));
+      } else if (layer.kind === "peak") {
+        var t = (worldX / layer.period) % 1;
+        if (t < 0) { t += 1; }
+        y = layer.baseY - layer.amp * (1 - Math.abs(t * 2 - 1));
+      } else if (layer.kind === "volcano") {
+        var t2 = (worldX / layer.period) % 1;
+        if (t2 < 0) { t2 += 1; }
+        var cone = 1 - Math.abs(t2 * 2 - 1);
+        y = layer.baseY - layer.amp * cone;
+        if (cone > 0.86) {
+          y = layer.baseY - layer.amp * 0.86;
+        }
+      } else {
+        y = layer.baseY - layer.amp * (0.5 + 0.5 * Math.sin(worldX / layer.period * Math.PI * 2))
+          * (0.6 + 0.4 * Math.sin(worldX / (layer.period * 0.37)));
+        y = clamp(y, layer.baseY - layer.amp * 1.5, layer.baseY);
+      }
       ctx.lineTo(x, y);
     }
     ctx.lineTo(VIEW_W, VIEW_H);
     ctx.closePath();
     ctx.fill();
+
+    if (layer.kind === "volcano") {
+      ctx.fillStyle = "rgba(255, 120, 50, 0.55)";
+      for (var v = 0; v <= VIEW_W + step2; v += step2) {
+        var worldV = v + offset;
+        var tv = (worldV / layer.period) % 1;
+        if (tv < 0) { tv += 1; }
+        if (Math.abs(tv * 2 - 1) > 0.86) {
+          ctx.fillRect(v - 4, layer.baseY - layer.amp * 0.9, 12, 6);
+        }
+      }
+    }
+  }
+
+  function drawAmbient() {
+    var amb = biome().ambient;
+    if (!amb) {
+      return;
+    }
+
+    if (amb === "snow") {
+      ctx.fillStyle = "rgba(240, 250, 255, 0.75)";
+      for (var i = 0; i < 60; i++) {
+        var sx = (hash01(i) * VIEW_W - game.time * (30 + hash01(i + 11) * 40)) % VIEW_W;
+        if (sx < 0) { sx += VIEW_W; }
+        var sy = (hash01(i + 5) * VIEW_H + game.time * (46 + hash01(i + 23) * 70)) % VIEW_H;
+        ctx.globalAlpha = 0.35 + hash01(i + 31) * 0.5;
+        ctx.fillRect(sx, sy, 3, 3);
+      }
+      ctx.globalAlpha = 1;
+    } else if (amb === "embers") {
+      for (var e = 0; e < 42; e++) {
+        var ex = (hash01(e + 60) * VIEW_W - game.time * (16 + hash01(e + 71) * 30)) % VIEW_W;
+        if (ex < 0) { ex += VIEW_W; }
+        var ey = VIEW_H - ((hash01(e + 83) * VIEW_H + game.time * (26 + hash01(e + 97) * 46)) % VIEW_H);
+        var flick = 0.4 + 0.6 * Math.abs(Math.sin(game.time * 5 + e));
+        ctx.fillStyle = "rgba(255, " + Math.round(120 + hash01(e) * 80) + ", 60, " + flick * 0.75 + ")";
+        ctx.fillRect(ex, ey, 2.5, 2.5);
+      }
+    }
   }
 
   function groundSegments() {
@@ -2084,7 +2274,9 @@
   }
 
   function drawGroundSlice() {
-    ctx.fillStyle = "#1a1f2e";
+    var g0 = biome().ground;
+
+    ctx.fillStyle = g0.fill;
     ctx.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
 
     var g = ctx.createLinearGradient(0, GROUND_Y, 0, VIEW_H);
@@ -2093,12 +2285,12 @@
     ctx.fillStyle = g;
     ctx.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
 
-    ctx.fillStyle = "#46e0c0";
+    ctx.fillStyle = g0.edge;
     ctx.fillRect(0, GROUND_Y - 2, VIEW_W, 3);
-    ctx.fillStyle = "rgba(70, 224, 192, 0.18)";
+    ctx.fillStyle = g0.glow;
     ctx.fillRect(0, GROUND_Y + 3, VIEW_W, 8);
 
-    ctx.strokeStyle = "rgba(120, 150, 180, 0.35)";
+    ctx.strokeStyle = g0.dash;
     ctx.lineWidth = 2;
     var spacing = 90;
     var off = game.scroll % spacing;
@@ -2109,56 +2301,99 @@
     }
     ctx.stroke();
 
-    ctx.fillStyle = "rgba(120, 150, 180, 0.18)";
+    ctx.fillStyle = g0.dash;
+    ctx.globalAlpha = 0.5;
     var off2 = (game.scroll * 1.25) % spacing;
     for (var x2 = -spacing + off2; x2 < VIEW_W + spacing; x2 += spacing) {
       ctx.fillRect(x2, GROUND_Y + 52, 52, 3);
     }
-
-    ctx.fillStyle = "rgba(90, 190, 170, 0.10)";
-    ctx.fillRect(0, GROUND_Y + 4, VIEW_W, 1);
+    ctx.globalAlpha = 1;
   }
 
-  function drawGate() {
-    var x = game.gateX;
-    var w = 66;
-    if (x > VIEW_W + w + 40 || x + w < -40) {
+  function drawPortal() {
+    var x = game.portalX;
+    var w = 84;
+    if (x > VIEW_W + w + 60 || x + w < -60) {
       return;
     }
-    var top = GROUND_Y - 224;
+    var top = GROUND_Y - 250;
+    var cx = x + w / 2;
+    var cy = GROUND_Y - 108;
+    var pulse = 0.5 + 0.5 * Math.abs(Math.sin(game.time * 2.6));
 
-    var pg = ctx.createLinearGradient(x, 0, x + w, 0);
-    pg.addColorStop(0, "#5c6b80");
-    pg.addColorStop(0.5, "#8b97a8");
-    pg.addColorStop(1, "#2a3444");
-    ctx.fillStyle = pg;
-    ctx.fillRect(x, top, 7, GROUND_Y - top);
-    ctx.fillRect(x + w - 7, top, 7, GROUND_Y - top);
+    for (var s = 0; s < 2; s++) {
+      var px = s === 0 ? x : x + w - 9;
+      var pg = ctx.createLinearGradient(px, 0, px + 9, 0);
+      pg.addColorStop(0, "#3d4a5e");
+      pg.addColorStop(0.45, "#93a3b8");
+      pg.addColorStop(1, "#242d3a");
+      ctx.fillStyle = pg;
+      rr(ctx, px, top, 9, GROUND_Y - top, 4);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(12,18,28,0.75)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-    var cell = 8;
-    var cols = 8;
-    for (var r = 0; r < 3; r++) {
-      for (var c = 0; c < cols; c++) {
-        ctx.fillStyle = (r + c) % 2 === 0 ? "rgba(240,246,252,0.92)" : "rgba(22,28,40,0.92)";
-        ctx.fillRect(x + 4 + c * cell, top + r * cell, cell, cell);
-      }
+      ctx.fillStyle = "rgba(200, 250, 255, " + pulse + ")";
+      ctx.beginPath();
+      ctx.arc(px + 4.5, top - 6, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(127, 230, 255, " + pulse * 0.4 + ")";
+      ctx.beginPath();
+      ctx.arc(px + 4.5, top - 6, 14, 0, Math.PI * 2);
+      ctx.fill();
     }
-    ctx.strokeStyle = "rgba(12,18,28,0.65)";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x + 4, top, cols * cell, 24);
 
-    var glow = 0.22 + 0.22 * Math.abs(Math.sin(game.time * 3));
-    ctx.fillStyle = "rgba(70, 224, 192, " + glow + ")";
-    ctx.fillRect(x - 6, GROUND_Y - 4, w + 12, 9);
+    var pad = ctx.createRadialGradient(cx, GROUND_Y + 2, 4, cx, GROUND_Y + 2, 58);
+    pad.addColorStop(0, "rgba(230, 255, 255, " + (0.35 + pulse * 0.3) + ")");
+    pad.addColorStop(1, "rgba(70, 224, 192, 0)");
+    ctx.fillStyle = pad;
+    ctx.fillRect(cx - 58, GROUND_Y - 26, 116, 52);
+
+    var glow = ctx.createRadialGradient(cx, cy, 6, cx, cy, 74);
+    glow.addColorStop(0, "rgba(240, 255, 255, 0.95)");
+    glow.addColorStop(0.3, "rgba(70, 224, 192, 0.5)");
+    glow.addColorStop(1, "rgba(70, 224, 192, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - 74, cy - 74, 148, 148);
+
+    for (var r = 0; r < 4; r++) {
+      var rad = 20 + r * 13 + Math.sin(game.time * 2 + r) * 2;
+      var dir = r % 2 === 0 ? 1 : -1;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(game.time * (0.9 + r * 0.4) * dir);
+      ctx.scale(1, 0.4);
+      ctx.strokeStyle = "rgba(127, 230, 255, " + (0.55 - r * 0.1) + ")";
+      ctx.lineWidth = 3 - r * 0.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, rad, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.fillStyle = "#eaffff";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 11 + Math.sin(game.time * 5) * 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (var i = 0; i < 9; i++) {
+      var a = game.time * 2.4 + i * (Math.PI * 2 / 9);
+      var sr = 34 + Math.sin(game.time * 3 + i * 1.7) * 7;
+      ctx.fillStyle = "rgba(210, 250, 255, 0.8)";
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * sr, cy + Math.sin(a) * sr * 0.4, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.font = "700 15px Consolas, 'Courier New', monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "rgba(10,16,26,0.85)";
-    rr(ctx, x + w / 2 - 24, top + 34, 48, 22, 6);
+    rr(ctx, cx - 38, top - 34, 76, 22, 6);
     ctx.fill();
-    ctx.fillStyle = "#46e0c0";
-    ctx.fillText("ZIEL", x + w / 2, top + 46);
+    ctx.fillStyle = "#7fe6ff";
+    ctx.fillText("PORTAL", cx, top - 23);
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
   }
@@ -3045,7 +3280,7 @@
   }
 
   function drawRobot() {
-    if (robot.destroyed) {
+    if (robot.destroyed || robot.hidden) {
       return;
     }
     var bob = robot.onGround && game.state !== "over" ? Math.sin(game.time * 22) * 1.6 : 0;
@@ -3235,7 +3470,7 @@
     ctx.textAlign = "center";
     ctx.font = "700 15px Consolas, 'Courier New', monospace";
     ctx.fillStyle = "rgba(255,255,255,0.6)";
-    ctx.fillText("LEVEL " + game.level, VIEW_W / 2, 16);
+    ctx.fillText("LEVEL " + game.level + " · " + biome().name, VIEW_W / 2, 16);
 
     ctx.fillStyle = "rgba(255,255,255,0.13)";
     rr(ctx, barX, barY, barW, 10, 5);
