@@ -442,7 +442,7 @@
     osc.stop(t0 + dur + 0.03);
   }
 
-    function noiseType(dur, peak, cutoff, type) {
+    function noiseType(dur, peak, cutoff, type, delay) {
     if (!audioReady()) {
       return;
     }
@@ -463,7 +463,7 @@
       src.connect(filter);
       filter.connect(gain);
       gain.connect(audio.master);
-      src.start();
+      src.start(c.currentTime + (delay || 0));
     }
 
     function noise(dur, peak, cutoff) {
@@ -536,13 +536,14 @@
     noise(0.1, 0.18, 2400);
   }
 
-  function sfxExplosion() {
-    noise(0.5, 0.55, 950);
-    tone({ freq: 130, freqEnd: 38, duration: 0.5, type: "sine", gain: 0.26 });
-    tone({ freq: 300, freqEnd: 90, duration: 0.26, type: "square", gain: 0.14 });
-    noise(0.32, 0.32, 2600);
-    tone({ freq: 72, freqEnd: 40, duration: 0.7, type: "sine", gain: 0.2, delay: 0.06 });
-  }
+    function sfxExplosion() {
+      var p = 1 + (Math.random() - 0.5) * 0.05;
+      tone({ freq: 98 * p, freqEnd: 34 * p, duration: 0.42, type: "sine", gain: 0.22, attack: 0.005 });
+      tone({ freq: 58 * p, freqEnd: 27 * p, duration: 0.62, type: "sine", gain: 0.16, attack: 0.01, delay: 0.05 });
+      noiseType(0.3, 0.24, 1500, "lowpass");
+      tone({ freq: 420 * p, freqEnd: 165 * p, duration: 0.15, type: "triangle", gain: 0.06, delay: 0.03 });
+      noiseType(0.55, 0.1, 700, "lowpass", 0.14);
+    }
 
   var music = {
     playing: false,
@@ -765,20 +766,26 @@
     noise(0.2, 0.2, 1800);
   }
 
-  function sfxLava() {
-    noise(0.32, 0.42, 700);
-    tone({ freq: 150, freqEnd: 60, duration: 0.34, type: "sawtooth", gain: 0.16 });
-  }
+    function sfxLava() {
+      var p = 1 + (Math.random() - 0.5) * 0.05;
+      tone({ freq: 128 * p, freqEnd: 44 * p, duration: 0.5, type: "triangle", gain: 0.15, attack: 0.008 });
+      noiseType(0.4, 0.26, 900, "lowpass");
+      noiseType(0.55, 0.09, 2200, "highpass", 0.1);
+    }
 
-  function sfxPit() {
-    noise(0.2, 0.28, 480);
-    tone({ freq: 620, freqEnd: 80, duration: 0.55, type: "sawtooth", gain: 0.16 });
-  }
+    function sfxPit() {
+      var p = 1 + (Math.random() - 0.5) * 0.05;
+      tone({ freq: 520 * p, freqEnd: 68 * p, duration: 0.65, type: "triangle", gain: 0.13, attack: 0.012 });
+      tone({ freq: 250 * p, freqEnd: 40 * p, duration: 0.72, type: "sine", gain: 0.09, attack: 0.02, delay: 0.06 });
+      noiseType(0.5, 0.14, 1200, "lowpass");
+    }
 
-  function sfxFuelEmpty() {
-    tone({ freq: 260, freqEnd: 210, duration: 0.18, type: "square", gain: 0.14 });
-    tone({ freq: 200, freqEnd: 150, duration: 0.24, type: "square", gain: 0.14, delay: 0.22 });
-  }
+    function sfxFuelEmpty() {
+      var p = 1 + (Math.random() - 0.5) * 0.06;
+      tone({ freq: 215 * p, freqEnd: 152 * p, duration: 0.2, type: "triangle", gain: 0.1, attack: 0.015 });
+      tone({ freq: 182 * p, freqEnd: 108 * p, duration: 0.28, type: "triangle", gain: 0.1, attack: 0.02, delay: 0.26 });
+      noiseType(0.14, 0.04, 700, "lowpass", 0.22);
+    }
 
   function sfxWarning() {
     tone({ freq: 1150, duration: 0.07, type: "square", gain: 0.08 });
@@ -805,12 +812,15 @@
     noise(0.16, 0.12, 3200);
   }
 
-  function sfxGameOver() {
-    var notes = [420, 320, 240, 150];
-    for (var i = 0; i < notes.length; i++) {
-      tone({ freq: notes[i], duration: 0.28, type: "square", gain: 0.14, delay: i * 0.16 });
+    function sfxGameOver() {
+      var notes = [392, 330, 262, 196];
+      for (var i = 0; i < notes.length; i++) {
+        tone({ freq: notes[i], duration: 0.36, type: "triangle", gain: 0.13, attack: 0.02, delay: i * 0.19 });
+        tone({ freq: notes[i] / 2, duration: 0.4, type: "sine", gain: 0.06, attack: 0.02, delay: i * 0.19 });
+      }
+      tone({ freq: 98, freqEnd: 62, duration: 1.2, type: "sine", gain: 0.11, attack: 0.04, delay: 0.64 });
+      noiseType(0.6, 0.07, 520, "lowpass", 0.62);
     }
-  }
 
   function rr(c, x, y, w, h, r) {
     var rad = Math.min(r, w / 2, h / 2);

@@ -330,6 +330,22 @@ Bandpass). Der Schuss liegt bei 720→190 Hz mit kurzem Highpass-Transienten. Sp
 Doppelsprung 0,09, Schuss 0,062 (vorher 0,18 bzw. 0,10). Alle drei bekommen zusätzlich eine leichte
 Zufalls-Verstimmung von ±3 %, damit sich der Dauerton nicht einschleift.
 
+### Sterbe-Klänge
+
+Die Todesfälle klingen absichtlich **tief und weich** – vorher hatten Einschlag, Sturz, Lava und die
+Game-Over-Melodie Rechteck- und Sägezahn-Anteile, die spitz und billig klangen:
+
+| Auslöser | Klang |
+|---|---|
+| Einschlag (`sfxExplosion`) | zwei tiefe Sinus-Wellen 98→34 Hz und 58→27 Hz (Druckwelle + Sub-Boom), gedämpftes Rauschen (Lowpass 1500 Hz), Metallklang 420→165 Hz, verzögerter Nachhall |
+| Grabensturz (`sfxPit`) | weicher Doppel-Absturz 520→68 Hz und 250→40 Hz plus Luftrauschen (statt Sägezahn) |
+| Lava (`sfxLava`) | tiefes Grollen 128→44 Hz, Lowpass-Rauschen und ein spätes Zischen (Highpass 2200 Hz) |
+| Tank leer (`sfxFuelEmpty`) | stotternder Motor: zwei abfallende Triangle-Töne 215→152 und 182→108 Hz mit kleinem Rauschen |
+| Game Over (`sfxGameOver`) | absteigende Melodie 392/330/262/196 Hz (Triangle) je mit Sub-Oktave, dann ein langer tiefer Schlusston 98→62 Hz |
+
+`noiseType()` hat dafür einen optionalen Startversatz (`delay`) bekommen, damit Nachhall und Zischen
+später einsetzen können. Alle Sterbeklänge haben eine leichte Zufalls-Verstimmung (±2–3 %).
+
 ### Hintergrundmusik
 
 Ebenfalls synthetisch, kein Audiofile: ein kleiner Sequencer (`music*`-Funktionen) mit Bass, Melodie
@@ -421,6 +437,10 @@ Windows-JScript-Interpreter `cscript`, der `game.js` mit gestubbten Browser-APIs
 
 Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
 
+- Sterbe-Klänge: geprüft, dass Einschlag, Sturz, Lava, Tank leer und Game-Over-Melodie keine
+  Rechteck-/Sägezahn-Anteile mehr enthalten, ihre tiefen Frequenzen treffen (98/58, 520/250, 128,
+  215/182, 392/330/262/196 Hz), Rauschen gedämpft und teils verzögert kommt und die Spitzenpegel
+  unter 0,24 liegen; zusätzlich Smoke-Test über alle 19 Klangfunktionen (keine stumm, keine Fehler)
 - Klänge: mit Frequenz-mitschreibendem Audio-Stub geprüft – Sprung 92–300 Hz, Doppelsprung
   125–410 Hz, Schuss 115–720 Hz (jeweils kein Ton über der neuen Obergrenze), Spitzenpegel 0,1 /
   0,09 / 0,062, Luftstoß bzw. Transient vorhanden, Tonhöhe variiert mit dem Zufall (706 vs 734 Hz)
@@ -528,6 +548,9 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     über `uiButton`/`clickUi`/`uiAction`, eigene Musiklautstärke (`roborunner.music`), Pause- und
     Game-Over-Menü mit Knöpfen, Pause-Knopf unten links für Touchgeräte; im Menü fährt der Roboter
     im Hintergrund weiter, gestartet wird nur noch über den Spielen-Knopf (oder Leertaste/Enter)
+22. Sterbe-Klänge überarbeitet: keine Rechteck-/Sägezahn-Anteile mehr, stattdessen tiefe Sinus-/
+    Triangle-Wellen mit Sub-Boom, gedämpftem Rauschen und verzögertem Nachhall; Game Over ist jetzt
+    eine absteigende Melodie mit tiefem Schlusston (`noiseType` bekam dafür einen Delay-Parameter)
 
 ---
 
