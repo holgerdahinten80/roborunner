@@ -135,11 +135,21 @@ Der HUD-Leveltitel zeigt den Kulissennamen mit an (`LEVEL 3 · NACHTSTADT`).
 | Tank-Upgrade | `fuelMax` startet 100, +25 pro Shop-Kauf |
 | Leer | kostet **ein Leben**, Respawn mit mindestens 45 % |
 | Warnung | Ton bei Unterschreiten von 25 %, Wiederholung alle 0,55 s unter 12 % |
-| Kanister-Dichte | alle `max(900, 1300-(level-1)*25)` px, ±6 % Streuung |
+| Kanister-Dichte | Basis `max(700, 1040-(level-1)*18)` px, multipliziert mit einer Welle (0,88–1,12) und ±4 % Streuung → kleinster Abstand ~920 px (Level 1) bzw. ~850 px (Level 5) |
 
-Kanister hängen **überwiegend in der Luft** (70 %, Höhe 110–150 px über dem Boden – nur per Sprung
-erreichbar, absichtlich kein „im Vorbeifahren einsammeln“), 30 % liegen am Boden.
-35 % der Luftkanister kommen als Doppelpack im Bogen (36 px versetzt).
+Kanister folgen einem festen **Rhythmus aus drei Höhen** (`CAN_KINDS = ["mid", "ground", "high"]`),
+damit keine zwei gleich aussehen und nichts nebeneinander liegt:
+
+| Art | Höhe über dem Boden | Sammlung |
+|---|---|---|
+| `mid` | 112–132 px | normaler Sprung |
+| `ground` | 40–52 px | im Vorbeifahren |
+| `high` | 140–158 px | Sprung nahe dem Scheitelpunkt |
+
+Reihenfolge immer mid → ground → high → mid … (zwei Drittel in der Luft, ein Drittel am Boden).
+Der Zähler `game.canCount` läuft pro Level. **Kein Doppelpack mehr** – Kanister liegen mindestens
+~850 px auseinander. Wird ein Spawn von einer Presse blockiert, versucht das Spiel es im nächsten
+Frame erneut, statt den Kanister zu verlieren.
 Liegt ein Kanister über Hindernis/Graben, wird er automatisch angehoben; eine Presse löscht ihn.
 
 ### Schrott (Spielwährung) und Shop
@@ -437,6 +447,10 @@ Windows-JScript-Interpreter `cscript`, der `game.js` mit gestubbten Browser-APIs
 
 Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
 
+- Kanister: geprüft, dass kein Paar dichter als 600 px liegt (Level 1: min 926 / avg 1082 px,
+  Level 5: min 848 / avg 1006 px), der Höhenrhythmus mid→ground→high durchläuft, der Bodenanteil
+  bei ~32 % liegt und die Benzinbilanz bei 74 % Sammelquote bleibt; Level 1 mit sauberem Spiel in
+  34,6 s schaffbar (86 % Restbenzin)
 - Sterbe-Klänge: geprüft, dass Einschlag, Sturz, Lava, Tank leer und Game-Over-Melodie keine
   Rechteck-/Sägezahn-Anteile mehr enthalten, ihre tiefen Frequenzen treffen (98/58, 520/250, 128,
   215/182, 392/330/262/196 Hz), Rauschen gedämpft und teils verzögert kommt und die Spitzenpegel
@@ -551,6 +565,9 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 22. Sterbe-Klänge überarbeitet: keine Rechteck-/Sägezahn-Anteile mehr, stattdessen tiefe Sinus-/
     Triangle-Wellen mit Sub-Boom, gedämpftem Rauschen und verzögertem Nachhall; Game Over ist jetzt
     eine absteigende Melodie mit tiefem Schlusston (`noiseType` bekam dafür einen Delay-Parameter)
+23. Kanisterverteilung überarbeitet: Doppelpack entfernt (keine zwei Kanister nebeneinander mehr),
+    fester Höhenrhythmus mid → ground → high, gleichmäßigerer Abstand (Welle + kleinere Basis),
+    verpasste Spawns werden wiederholt statt verworfen; Benzinbilanz bleibt bei ~74 % Sammelquote
 
 ---
 

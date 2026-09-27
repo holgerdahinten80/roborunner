@@ -32,6 +32,7 @@
   var INVULN_TIME = 1.5;
   var CAN_W = 26;
   var CAN_H = 30;
+  var CAN_KINDS = ["mid", "ground", "high"];
   var SPAWN_STOP_MARGIN = 900;
 
   var HIGHSCORE_KEY = "roborunner.highscore";
@@ -259,6 +260,7 @@
     portalX: VIEW_W,
     spawnTime: 0.9,
     canAt: 180,
+    canCount: 0,
     dead: false,
     deadTimer: 0,
     blasts: [],
@@ -978,6 +980,7 @@
     game.enemyTime = rand(2.2, 3.2);
     game.spawnTime = 2.4;
     game.canAt = 180;
+    game.canCount = 0;
     game.levelBonus = 0;
     game.obstacles.length = 0;
     game.pits.length = 0;
@@ -1321,17 +1324,24 @@
   }
 
   function canSpacing() {
-    var base = Math.max(900, 1300 - (game.level - 1) * 25);
-    return base * rand(0.94, 1.06);
+    var base = Math.max(700, 1040 - (game.level - 1) * 18);
+    var wave = 0.88 + 0.24 * Math.abs(Math.sin(game.canCount * 1.7));
+    return base * wave * rand(0.96, 1.04);
   }
 
-  function canElevatedChance() {
-    return clamp(0.7 + (game.level - 1) * 0.03, 0, 0.85);
+  function canHeight(kind) {
+    if (kind === "ground") {
+      return GROUND_Y - rand(40, 52);
+    }
+    if (kind === "high") {
+      return GROUND_Y - rand(140, 158);
+    }
+    return GROUND_Y - rand(112, 132);
   }
 
   function pushCan(x, y) {
     if (overlapsCrusher(x, CAN_W)) {
-      return;
+      return false;
     }
 
     for (var i = 0; i < game.obstacles.length; i++) {
@@ -1354,17 +1364,16 @@
       h: CAN_H,
       seed: Math.random() * 10
     });
+    return true;
   }
 
   function spawnCan() {
-    var elevated = Math.random() < canElevatedChance();
-    var y = elevated ? GROUND_Y - rand(110, 150) : GROUND_Y - rand(40, 52);
-
-    pushCan(VIEW_W + 20, y);
-
-    if (elevated && Math.random() < 0.35) {
-      pushCan(VIEW_W - 16, y - 12);
+    var kind = CAN_KINDS[game.canCount % CAN_KINDS.length];
+    if (!pushCan(VIEW_W + 20, canHeight(kind))) {
+      return false;
     }
+    game.canCount += 1;
+    return true;
   }
 
   function spawnSpare() {
@@ -1967,8 +1976,7 @@
         }
       }
 
-      if (remaining > 320 && game.distance >= game.canAt) {
-        spawnCan();
+      if (remaining > 320 && game.distance >= game.canAt && spawnCan()) {
         game.canAt = game.distance + canSpacing();
       }
 
