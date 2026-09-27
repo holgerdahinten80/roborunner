@@ -129,7 +129,7 @@ Der HUD-Leveltitel zeigt den Kulissennamen mit an (`LEVEL 3 · NACHTSTADT`).
 
 | Größe | Wert |
 |---|---|
-| Verbrauch | `100 / 4600` pro px → **ein voller Tank reicht 4600 px** (rein streckenbasiert, nicht zeitbasiert) |
+| Verbrauch | `100 / 5600` pro px → **ein voller Tank reicht 5600 px** (rein streckenbasiert, nicht zeitbasiert) |
 | Kanister | +25 %, Deckel bei `fuelMax` |
 | Start | Tank voll bei jedem Levelstart (`fuel = fuelMax`) |
 | Tank-Upgrade | `fuelMax` startet 100, +25 pro Shop-Kauf |
@@ -305,7 +305,7 @@ werden mit +6/+10 Bonus geprüft (leichter einzusammeln als zu treffen).
 ```
 GRAVITY 3050 · HOLD_GRAVITY 2400 · JUMP 745 · DOUBLE_JUMP 645 · TRIPLE_JUMP 560 · JUMP_CUT 380
 COYOTE 0.1 · JUMP_BUFFER 0.13 · MAX_SPEED 940 · SPEED_RAMP 0.022
-START_LIVES 3 · FUEL_MAX 100 · FUEL_PER_PIXEL 100/4600 · FUEL_PER_CAN 25 · RESPAWN_FUEL 45
+START_LIVES 3 · FUEL_MAX 100 · FUEL_PER_PIXEL 100/5600 · FUEL_PER_CAN 25 · RESPAWN_FUEL 45
 INVULN_TIME 1.5 · SPARE_CHANCE 0.5 · SPARE_LIFT 220
 Dichte: spawnGap 2.2*0.82^(level-1) · enemyGap 2.6*0.85^(level-1) · pitChance 0.22+(level-1)*0.05
 SHOT_SPEED 900 · SHOT_COOLDOWN 0.26 · SHOT_SCORE 25 · BULLET_SPEED 230 · SHOP_LOCK_TIME 0.9
@@ -449,8 +449,8 @@ Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
 
 - Kanister: geprüft, dass kein Paar dichter als 600 px liegt (Level 1: min 926 / avg 1082 px,
   Level 5: min 848 / avg 1006 px), der Höhenrhythmus mid→ground→high durchläuft, der Bodenanteil
-  bei ~32 % liegt und die Benzinbilanz bei 74 % Sammelquote bleibt; Level 1 mit sauberem Spiel in
-  34,6 s schaffbar (86 % Restbenzin)
+  bei ~32 % liegt und die Benzinbilanz bei 61 % Sammelquote liegt; Level 1 mit sauberem Spiel in
+  32 s schaffbar (90 % Restbenzin), Level 5 mit 47 %, Nur-Boden-Spieler verliert 2 Leben
 - Sterbe-Klänge: geprüft, dass Einschlag, Sturz, Lava, Tank leer und Game-Over-Melodie keine
   Rechteck-/Sägezahn-Anteile mehr enthalten, ihre tiefen Frequenzen treffen (98/58, 520/250, 128,
   215/182, 392/330/262/196 Hz), Rauschen gedämpft und teils verzögert kommt und die Spitzenpegel
@@ -476,7 +476,7 @@ Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
   Level-1-Graben mit 7 von 19 Timings überspringbar
 - Steuerung/HUD: Titel, HUD ohne Tempo- und Sprunganzeige, Level- und Benzinanzeige, alle Regeln im Titel
 - Physik: Sprunghöhen (109/188/218 px), Graben-Sprungfenster 6 von 21 Timings, 7 von 11 für Krabbler/Turm/Drohne/Schuss
-- Benzin: Verbrauch exakt 4600 px pro Tank, Kanister +25 %, Deckel greift, Tank leer kostet ein Leben,
+- Benzin: Verbrauch exakt 5600 px pro Tank, Kanister +25 %, Deckel greift, Tank leer kostet ein Leben,
   Kanister-Verteilung ~80 % in der Luft, Kanister über Gräben werden angehoben
 - Schrott/Shop: 5 Typen mit unterschiedlichen Werten, alle vier Käufe inkl. Preisabbuchung,
   Ablehnung bei „voll“/zu wenig, Klick-Kauf, Übernahme ins nächste Level, Tankdeckel
@@ -567,7 +567,11 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     eine absteigende Melodie mit tiefem Schlusston (`noiseType` bekam dafür einen Delay-Parameter)
 23. Kanisterverteilung überarbeitet: Doppelpack entfernt (keine zwei Kanister nebeneinander mehr),
     fester Höhenrhythmus mid → ground → high, gleichmäßigerer Abstand (Welle + kleinere Basis),
-    verpasste Spawns werden wiederholt statt verworfen; Benzinbilanz bleibt bei ~74 % Sammelquote
+    verpasste Spawns werden wiederholt statt verworfen; Benzinbilanz bleibt bei ~61 % Sammelquote
+24. Tankverbrauch gesenkt: `FUEL_PER_PIXEL` von `100/4600` auf `100/5600` – ein voller Tank reicht
+    jetzt 5600 px statt 4600 (+22 %), die nötige Sammelquote sinkt von 74 % auf 61 %.
+    Level 1 mit sauberem Spiel 90 % Restbenzin, Level 5 47 %; wer nur Bodenkanister mitnimmt,
+    verliert weiterhin zwei Leben pro Level
 
 ---
 

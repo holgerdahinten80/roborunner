@@ -25,7 +25,7 @@
 
   var START_LIVES = 3;
   var FUEL_MAX = 100;
-  var FUEL_PER_PIXEL = 100 / 4600;
+  var FUEL_PER_PIXEL = 100 / 5600;
   var FUEL_PER_CAN = 25;
   var FUEL_LOW = 25;
   var RESPAWN_FUEL = 45;
