@@ -317,6 +317,13 @@ suspendiert. Sounds: Sprung, Doppelsprung, Kanister (Tonhöhe steigt mit Combo),
 Spielerschuss, Gegnerschuss, Gegnerabschuss, Crash-Explosion, Grabensturz, Lava, Schild, Tank leer,
 Warnpiepen, Kauf, abgelehnter Kauf, Level-Fanfare, Extra-Leben, Game Over.
 
+Sprung und Schuss sind bewusst **tief und leise** gehalten, weil sie am häufigsten ausgelöst werden:
+Sprung ist ein Booster aus Sinus 185→300 Hz plus Triangle 92→150 Hz und einem kurzen Luftstoß
+(`noiseType`, Lowpass 900 Hz), Doppelsprung das gleiche eine Oktave höher (250→410 / 125→205 Hz,
+Bandpass). Der Schuss liegt bei 720→190 Hz mit kurzem Highpass-Transienten. Spitzenpegel: Sprung 0,1,
+Doppelsprung 0,09, Schuss 0,062 (vorher 0,18 bzw. 0,10). Alle drei bekommen zusätzlich eine leichte
+Zufalls-Verstimmung von ±3 %, damit sich der Dauerton nicht einschleift.
+
 ### Hintergrundmusik
 
 Ebenfalls synthetisch, kein Audiofile: ein kleiner Sequencer (`music*`-Funktionen) mit Bass, Melodie
@@ -395,6 +402,9 @@ Windows-JScript-Interpreter `cscript`, der `game.js` mit gestubbten Browser-APIs
 
 Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
 
+- Klänge: mit Frequenz-mitschreibendem Audio-Stub geprüft – Sprung 92–300 Hz, Doppelsprung
+  125–410 Hz, Schuss 115–720 Hz (jeweils kein Ton über der neuen Obergrenze), Spitzenpegel 0,1 /
+  0,09 / 0,062, Luftstoß bzw. Transient vorhanden, Tonhöhe variiert mit dem Zufall (706 vs 734 Hz)
 - Musik: mit AudioContext-Stub und manuellem `setInterval` geprüft – Start beim ersten Tastendruck,
   Scheduler erzeugt Töne im begrenzten Vorlauf, Zeitsprung (200 s) wird abgefangen statt als Schwall
   nachgeholt, Mute stellt den Musik-Gain sofort auf 0 und Unmute wieder her, Level 4 nutzt den
@@ -491,6 +501,10 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 19. Hintergrundmusik: synthetischer Sequencer in `game.js` mit Bass, Melodie und Schlagzeug,
     fünf kulissenabhängige Tracks (104–134 BPM), Vorlauf-Scheduler und sauberer Mute-Anbindung
     (siehe Abschnitt 5, „Hintergrundmusik")
+20. Sprung- und Schussklang angenehmer: deutlich tiefere Frequenzen (Sprung 380–720 → 92–300 Hz,
+    Doppelsprung 560–1380 → 125–410 Hz, Schuss 480–2100 → 115–720 Hz), weichere Wellenformen und
+    Hüllkurven, leisere Spitzenpegel, kurze Luft-/Transient-Geräusche und ±3 % Zufalls-Verstimmung;
+    `noise()` akzeptiert dafür jetzt einen Filtertyp (`noiseType`)
 
 ---
 

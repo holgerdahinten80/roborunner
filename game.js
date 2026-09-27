@@ -438,7 +438,7 @@
     osc.stop(t0 + dur + 0.03);
   }
 
-  function noise(dur, peak, cutoff) {
+    function noiseType(dur, peak, cutoff, type) {
     if (!audioReady()) {
       return;
     }
@@ -451,16 +451,20 @@
     }
     var src = c.createBufferSource();
     src.buffer = buffer;
-    var filter = c.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.value = cutoff || 1200;
-    var gain = c.createGain();
-    gain.gain.value = peak;
-    src.connect(filter);
-    filter.connect(gain);
-    gain.connect(audio.master);
-    src.start();
-  }
+      var filter = c.createBiquadFilter();
+      filter.type = type || "lowpass";
+      filter.frequency.value = cutoff || 1200;
+      var gain = c.createGain();
+      gain.gain.value = peak;
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(audio.master);
+      src.start();
+    }
+
+    function noise(dur, peak, cutoff) {
+      noiseType(dur, peak, cutoff, "lowpass");
+    }
 
   function audioToggle() {
     audio.enabled = !audio.enabled;
@@ -488,14 +492,19 @@
     tone({ freq: 760, duration: 0.06, type: "triangle", gain: 0.12 });
   }
 
-  function sfxJump() {
-    tone({ freq: 380, freqEnd: 720, duration: 0.13, type: "triangle", gain: 0.18 });
-  }
+    function sfxJump() {
+      var p = 1 + (Math.random() - 0.5) * 0.06;
+      tone({ freq: 185 * p, freqEnd: 300 * p, duration: 0.17, type: "sine", gain: 0.1, attack: 0.022 });
+      tone({ freq: 92 * p, freqEnd: 150 * p, duration: 0.19, type: "triangle", gain: 0.06, attack: 0.022 });
+      noiseType(0.09, 0.045, 900, "lowpass");
+    }
 
-  function sfxDoubleJump() {
-    tone({ freq: 560, freqEnd: 940, duration: 0.12, type: "square", gain: 0.12 });
-    tone({ freq: 900, freqEnd: 1380, duration: 0.14, type: "triangle", gain: 0.14, delay: 0.06 });
-  }
+    function sfxDoubleJump() {
+      var p = 1 + (Math.random() - 0.5) * 0.06;
+      tone({ freq: 250 * p, freqEnd: 410 * p, duration: 0.15, type: "sine", gain: 0.09, attack: 0.018 });
+      tone({ freq: 125 * p, freqEnd: 205 * p, duration: 0.16, type: "triangle", gain: 0.055, attack: 0.018 });
+      noiseType(0.11, 0.05, 1400, "bandpass");
+    }
 
   function sfxPickup() {
     audio.combo = Math.min(audio.combo + 1, 9);
@@ -505,10 +514,12 @@
     tone({ freq: f * 2, duration: 0.05, type: "sine", gain: 0.07, delay: 0.02 });
   }
 
-  function sfxPlayerShot() {
-    tone({ freq: 1250, freqEnd: 480, duration: 0.1, type: "square", gain: 0.1 });
-    tone({ freq: 2100, freqEnd: 900, duration: 0.06, type: "sine", gain: 0.06 });
-  }
+    function sfxPlayerShot() {
+      var p = 1 + (Math.random() - 0.5) * 0.05;
+      tone({ freq: 720 * p, freqEnd: 190 * p, duration: 0.12, type: "triangle", gain: 0.062, attack: 0.006 });
+      tone({ freq: 360 * p, freqEnd: 115 * p, duration: 0.14, type: "sine", gain: 0.045, attack: 0.006 });
+      noiseType(0.045, 0.035, 2600, "highpass");
+    }
 
   function sfxEnemyDown() {
     noise(0.24, 0.3, 1400);
