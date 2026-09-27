@@ -134,6 +134,79 @@
     }
   ];
 
+  var MUSIC_TRACKS = [
+    {
+      bpm: 104,
+      root: 45,
+      scale: [0, 3, 5, 7, 10],
+      prog: [0, 0, -4, 3],
+      bassWave: "triangle",
+      leadWave: "triangle",
+      bassGain: 0.12,
+      leadGain: 0.05,
+      kick: "1000000010000000",
+      snare: "0000100000001000",
+      hat: "0010001000100010",
+      melody: [0, -1, 4, -1, 2, -1, 3, -1, 0, -1, 4, 2, 3, -1, 1, -1]
+    },
+    {
+      bpm: 112,
+      root: 50,
+      scale: [0, 1, 4, 5, 7, 8, 10],
+      prog: [0, 0, 5, 3],
+      bassWave: "square",
+      leadWave: "triangle",
+      bassGain: 0.1,
+      leadGain: 0.05,
+      kick: "1000000010010000",
+      snare: "0000100000001000",
+      hat: "0010001000100010",
+      melody: [0, 2, 4, 5, 4, 2, 4, 6, 5, -1, 4, 2, 1, 2, 4, -1]
+    },
+    {
+      bpm: 124,
+      root: 42,
+      scale: [0, 3, 5, 7, 10],
+      prog: [0, 8, 3, 5],
+      bassWave: "sawtooth",
+      leadWave: "square",
+      bassGain: 0.1,
+      leadGain: 0.045,
+      kick: "1000001010000010",
+      snare: "0000100000001000",
+      hat: "0010101000101011",
+      melody: [0, 4, 7, 4, 2, 4, 7, 9, 0, 4, 7, 4, 5, 4, 2, 1]
+    },
+    {
+      bpm: 100,
+      root: 48,
+      scale: [0, 2, 3, 5, 7, 10],
+      prog: [0, -2, -4, -5],
+      bassWave: "sine",
+      leadWave: "sine",
+      bassGain: 0.13,
+      leadGain: 0.055,
+      kick: "1000000000100000",
+      snare: "0000000000001000",
+      hat: "0001000100010001",
+      melody: [0, -1, 5, -1, 3, -1, 5, -1, 4, -1, 3, -1, 2, -1, 0, -1]
+    },
+    {
+      bpm: 134,
+      root: 40,
+      scale: [0, 3, 5, 6, 7, 10],
+      prog: [0, 0, 1, 3],
+      bassWave: "sawtooth",
+      leadWave: "sawtooth",
+      bassGain: 0.11,
+      leadGain: 0.04,
+      kick: "1000100010001000",
+      snare: "0000100000001000",
+      hat: "1011101110111011",
+      melody: [0, 4, 2, 4, 5, 4, 2, 0, 0, 4, 2, 4, 6, 5, 4, 2]
+    }
+  ];
+
   var ENEMY_TYPES = [
     { id: "crawler", w: 46, h: 38, weight: 42 },
     { id: "drone", w: 42, h: 28, weight: 34 },
@@ -313,6 +386,7 @@
       audio.master = audio.ctx.createGain();
       audio.master.gain.value = audio.volume * 0.7;
       audio.master.connect(audio.ctx.destination);
+      audioKeepMusic();
     } catch (e) {
       audio.ctx = null;
       audio.master = null;
@@ -325,6 +399,13 @@
       audio.master.gain.value = audio.volume * 0.7;
     }
     writeVolume(audio.volume);
+  }
+
+  function audioKeepMusic() {
+    musicApplyVolume();
+    if (audio.enabled && !music.playing && game.state !== "over") {
+      musicStart();
+    }
   }
 
   function audioReady() {
@@ -384,6 +465,7 @@
   function audioToggle() {
     audio.enabled = !audio.enabled;
     writeSound(audio.enabled);
+    audioKeepMusic();
     if (audio.enabled) {
       audioInit();
       tone({ freq: 880, freqEnd: 1320, duration: 0.12, type: "triangle", gain: 0.18 });
@@ -445,6 +527,182 @@
     tone({ freq: 300, freqEnd: 90, duration: 0.26, type: "square", gain: 0.14 });
     noise(0.32, 0.32, 2600);
     tone({ freq: 72, freqEnd: 40, duration: 0.7, type: "sine", gain: 0.2, delay: 0.06 });
+  }
+
+  var music = {
+    playing: false,
+    gain: null,
+    noise: null,
+    timer: null,
+    track: 0,
+    step: 0,
+    bar: 0,
+    nextTime: 0,
+    stepDur: 0.144,
+    volume: 0.5
+  };
+
+  function musicNoteFreq(semitone) {
+    return 440 * Math.pow(2, (semitone - 69) / 12);
+  }
+
+  function musicTrack() {
+    return MUSIC_TRACKS[music.track % MUSIC_TRACKS.length];
+  }
+
+  function musicVoice(wave, freq, at, dur, peak) {
+    var c = audio.ctx;
+    var osc = c.createOscillator();
+    var gain = c.createGain();
+    osc.type = wave;
+    osc.frequency.setValueAtTime(freq, at);
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), at + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    osc.connect(gain);
+    gain.connect(music.gain);
+    osc.start(at);
+    osc.stop(at + dur + 0.02);
+  }
+
+  function musicNoise(at, dur, peak, cutoff, type) {
+    var c = audio.ctx;
+    if (!music.noise) {
+      var len = Math.floor(c.sampleRate * 0.3);
+      var buffer = c.createBuffer(1, len, c.sampleRate);
+      var data = buffer.getChannelData(0);
+      for (var i = 0; i < len; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      music.noise = buffer;
+    }
+    var src = c.createBufferSource();
+    src.buffer = music.noise;
+    var filter = c.createBiquadFilter();
+    filter.type = type || "highpass";
+    filter.frequency.value = cutoff || 6000;
+    var gain = c.createGain();
+    gain.gain.setValueAtTime(Math.max(0.0002, peak), at);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(music.gain);
+    src.start(at);
+    src.stop(at + dur + 0.02);
+  }
+
+  function musicKick(at, peak) {
+    var c = audio.ctx;
+    var osc = c.createOscillator();
+    var gain = c.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(150, at);
+    osc.frequency.exponentialRampToValueAtTime(46, at + 0.13);
+    gain.gain.setValueAtTime(Math.max(0.0002, peak), at);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.2);
+    osc.connect(gain);
+    gain.connect(music.gain);
+    osc.start(at);
+    osc.stop(at + 0.22);
+  }
+
+  function musicScheduleStep(step, at) {
+    var track = musicTrack();
+    var chord = track.prog[music.bar % track.prog.length];
+
+    if (step % 4 === 0 || step % 8 === 6) {
+      var bassNote = track.root + chord + (step % 8 === 6 ? 7 : 0);
+      musicVoice(track.bassWave, musicNoteFreq(bassNote), at, 0.28, track.bassGain);
+    }
+
+    var leadIdx = track.melody[step % track.melody.length];
+    if (leadIdx >= 0) {
+      var deg = track.scale[leadIdx % track.scale.length];
+      musicVoice(track.leadWave, musicNoteFreq(track.root + 24 + chord + deg), at, 0.16, track.leadGain);
+    }
+
+    if (track.kick.charAt(step % 16) === "1") {
+      musicKick(at, 0.16);
+    }
+    if (track.snare.charAt(step % 16) === "1") {
+      musicNoise(at, 0.16, 0.09, 1800, "bandpass");
+    }
+    if (track.hat.charAt(step % 16) === "1") {
+      musicNoise(at, 0.045, 0.04, 8000, "highpass");
+    }
+  }
+
+  function musicTick() {
+    if (!audio.ctx || !music.gain) {
+      return;
+    }
+    var c = audio.ctx;
+    if (music.nextTime < c.currentTime) {
+      music.nextTime = c.currentTime + 0.05;
+    }
+    while (music.nextTime < c.currentTime + 0.25) {
+      musicScheduleStep(music.step, music.nextTime);
+      music.nextTime += music.stepDur;
+      music.step += 1;
+      if (music.step >= 16) {
+        music.step = 0;
+        music.bar += 1;
+      }
+    }
+  }
+
+  function musicApplyVolume() {
+    if (!music.gain || !audio.ctx) {
+      return;
+    }
+    music.gain.gain.value = audio.enabled ? music.volume : 0;
+  }
+
+  function musicStart() {
+    if (music.playing || !audio.ctx || !audio.master) {
+      return;
+    }
+    if (typeof setInterval !== "function") {
+      return;
+    }
+    try {
+      music.gain = audio.ctx.createGain();
+      music.gain.gain.value = audio.enabled ? music.volume : 0;
+      music.gain.connect(audio.master);
+      music.playing = true;
+      music.nextTime = audio.ctx.currentTime + 0.1;
+      music.timer = setInterval(musicTick, 40);
+      musicTick();
+    } catch (e) {
+      music.playing = false;
+      music.gain = null;
+    }
+  }
+
+  function musicStop() {
+    if (music.timer && typeof clearInterval === "function") {
+      clearInterval(music.timer);
+    }
+    music.timer = null;
+    music.playing = false;
+    if (music.gain) {
+      try {
+        music.gain.disconnect();
+      } catch (e) {
+        /* egal */
+      }
+    }
+    music.gain = null;
+    music.step = 0;
+    music.bar = 0;
+  }
+
+  function musicSetLevel(level) {
+    music.track = (level - 1) % MUSIC_TRACKS.length;
+    music.stepDur = 60 / musicTrack().bpm / 4;
+    if (!music.playing) {
+      musicStart();
+    }
   }
 
   function sfxScrap(value) {
@@ -634,6 +892,7 @@
 
     if (game.lives <= 0) {
       game.state = "over";
+      musicStop();
       sfxGameOver();
       saveHighscore();
       return;
@@ -688,6 +947,7 @@
     game.lowFuelWarned = false;
     game.warnTimer = 0;
     audio.combo = 0;
+    musicSetLevel(n);
 
     resetRobot();
     game.state = "playing";

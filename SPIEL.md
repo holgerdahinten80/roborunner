@@ -317,6 +317,28 @@ suspendiert. Sounds: Sprung, Doppelsprung, Kanister (Tonhöhe steigt mit Combo),
 Spielerschuss, Gegnerschuss, Gegnerabschuss, Crash-Explosion, Grabensturz, Lava, Schild, Tank leer,
 Warnpiepen, Kauf, abgelehnter Kauf, Level-Fanfare, Extra-Leben, Game Over.
 
+### Hintergrundmusik
+
+Ebenfalls synthetisch, kein Audiofile: ein kleiner Sequencer (`music*`-Funktionen) mit Bass, Melodie
+und Schlagzeug. Jede Kulisse hat einen eigenen Track in `MUSIC_TRACKS` (Wurzelton, Tonleiter,
+Akkordfolge, Tempo, Wellenformen, Melodie und Drum-Bitmasken), umgeschaltet in `musicSetLevel()`.
+
+| Level | Kulisse | Tempo | Charakter |
+|---|---|---|---|
+| 1 | Dämmerung | 104 BPM | ruhig, Triangel-Bass, luftige Pentatonik |
+| 2 | Wüste | 112 BPM | Square-Bass, phrygisch angehaucht (kleine Sekunde) |
+| 3 | Nachtstadt | 124 BPM | treibender Synthwave-Saw-Bass, dichtere Hats |
+| 4 | Eisfeld | 100 BPM | weiche Sinus-Töne, sparsames Schlagzeug |
+| 5 | Vulkan | 134 BPM | aggressiver Saw, Viertel-Kick, dichte Hats |
+
+Technik: 16 Schritte pro Takt, `stepDur = 60 / bpm / 4`; ein Vorlauf-Scheduler (`musicTick`, alle
+40 ms per `setInterval`) plant 0,25 s im Voraus über `ctx.currentTime`. Läuft der Kontext durch
+Blur/Suspend hinterher, setzt `musicTick` die Zeit neu (`nextTime < currentTime`) – sonst käme ein
+Schwall nachgeholter Töne. Die Musik hängt an einem eigenen Gain (`music.gain`) hinter dem Master,
+`M` stummschaltet sie also sofort, `-`/`+` regeln sie mit. Start beim ersten Tastendruck, Stopp bei
+Game Over, Neustart mit jedem Lauf. Ohne Audio-API oder ohne `setInterval` passiert schlicht nichts
+(alle Musikfunktionen steigen vorher aus).
+
 ---
 
 ## 6. Test-Vorgehen (wichtigste Info für die Fortsetzung)
@@ -373,6 +395,11 @@ Windows-JScript-Interpreter `cscript`, der `game.js` mit gestubbten Browser-APIs
 
 Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
 
+- Musik: mit AudioContext-Stub und manuellem `setInterval` geprüft – Start beim ersten Tastendruck,
+  Scheduler erzeugt Töne im begrenzten Vorlauf, Zeitsprung (200 s) wird abgefangen statt als Schwall
+  nachgeholt, Mute stellt den Musik-Gain sofort auf 0 und Unmute wieder her, Level 4 nutzt den
+  Eisfeld-Takt (100 BPM, Schrittweite 0,150 s), Stopp bei Game Over, Wiederstart mit dem neuen Lauf;
+  ohne Audio-API läuft alles unverändert weiter (12 000 Frames geprüft)
 - Mobil/Touch: mit Touch-Stub geprüft – Mobil-Hinweise im Titel, Feuer-Knopf wird gezeichnet,
   Knopf feuert (und springt nicht zusätzlich), Halten feuert 30 von 30 Frames, nach dem Loslassen
   kein Schuss mehr, Knopf im Shop ohne Wirkung, Vollbild wird genau einmal angefordert;
@@ -461,6 +488,9 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     komplette Historie gepusht; Push-Anleitung steht in Abschnitt 11
 18. Zwei Stangen/Pylonen am Portal entfernt, damit der Roboter frei durch den Wirbel fährt; Wirbel
     dafür größer (Ringe 26–74 px Radius, Glow 96 px) und Beschriftung direkt über dem Portal
+19. Hintergrundmusik: synthetischer Sequencer in `game.js` mit Bass, Melodie und Schlagzeug,
+    fünf kulissenabhängige Tracks (104–134 BPM), Vorlauf-Scheduler und sauberer Mute-Anbindung
+    (siehe Abschnitt 5, „Hintergrundmusik")
 
 ---
 
