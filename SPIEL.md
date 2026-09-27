@@ -166,15 +166,26 @@ Liegt ein Kanister über Hindernis/Graben, wird er automatisch angehoben; eine P
 
 ### Schrott (Spielwährung) und Shop
 
-Schrottteile liegen alle 240–430 px, 35 % in der Luft (96–146 px hoch). Werte und Häufigkeit:
+Schrottteile liegen alle 240–430 px, 35 % in der Luft (96–146 px hoch). Werte, Häufigkeit und
+Aussehen (sechs Sorten, jede mit eigener Animation und zufälliger Drehung):
 
-| Typ | Wert | Gewicht |
-|---|---|---|
-| Schraube | 1 | 34 |
-| Feder | 2 | 26 |
-| Zahnrad | 3 | 20 |
-| Blech | 4 | 13 |
-| Spule | 6 | 7 |
+| Typ | Wert | Gewicht | Stufe | Aussehen |
+|---|---|---|---|---|
+| Schraube `bolt` | 1 | 34 | 0 | Sechskantkopf mit Stahlverlauf, Schlitz und wanderndem Glanzpunkt |
+| Feder `spring` | 2 | 24 | 0 | fünf Windungen, die sich sichtbar zusammendrücken und dehnen |
+| Zahnrad `gear` | 3 | 18 | 1 | acht trapezförmige Zähne, dreht sich, Nabe mit Passfeder |
+| Rohr `pipe` | 4 | 14 | 1 | gebogener Krümmer mit Lichtkante und Muffen |
+| Blech `plate` | 6 | 7 | 2 | verbogene Platte, die leicht wippt, mit Riffelung und Nieten |
+| Platine `chip` | 9 | 3 | 2 | grüne Leiterplatte mit Goldkontakten, schwarzem IC und **zwei blinkenden LEDs** |
+
+Die **Stufe** bestimmt den Lichthof: Stufe 0 klein und dezent, Stufe 1 kräftiger, Stufe 2 mit
+pulsierendem Ring – seltene Teile fallen also sofort auf.
+
+**Sammel-Kombo:** Jedes Stück innerhalb von 2,2 s nach dem vorherigen erhöht den Multiplikator um
+0,25 bis maximal **x2**. Der schwebende Text zeigt den tatsächlichen Gewinn, z. B. `+13  x1.5`.
+Nach 2,2 s ohne Fund beginnt die Kette wieder bei x1. In der Praxis bringt eine Serie also deutlich
+mehr Schrott als einzelne Funde – das belohnt sauberes Spiel – und die Schrottmenge pro Level liegt
+dadurch über der alten Kalkulation (die Shop-Preise sind noch auf die alte Menge ausgelegt).
 
 Schrott gilt pro Lauf (wird bei Spielstart auf 0 gesetzt) und bleibt über die Level erhalten.
 Spawn wird verworfen, wenn Hindernis oder Graben im Weg ist (wird im nächsten Frame erneut versucht).
@@ -479,6 +490,10 @@ Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
   Level 5: min 848 / avg 1006 px), der Höhenrhythmus mid→ground→high durchläuft, der Bodenanteil
   bei ~32 % liegt und die Benzinbilanz bei 61 % Sammelquote liegt; Level 1 mit sauberem Spiel in
   32 s schaffbar (90 % Restbenzin), Level 5 mit 47 %, Nur-Boden-Spieler verliert 2 Leben
+- Schrott: geprüft, dass alle sechs Sorten im Verhältnis ihrer Gewichte spawnen (225 Stücke:
+  bolt 70, spring 56, pipe 37, gear 35, plate 18, chip 9), alle sechs Zeichenroutinen fehlerfrei
+  laufen, die Kombo in Folge 10 / 13 / 15 / 18 Punkte ergibt (x1 → x1.75), als `x1.25` im
+  schwebenden Text erscheint und nach 2,2 s Pause wieder bei x1 beginnt
 - Planeten/Boden: geprüft, dass alle fünf Kulissen mit Verläufen rendern und `save`/`restore`
   balanciert bleibt, die Ringplaneten (Wüste, Eisfeld) die zusätzlichen Ringbahnen zeichnen
   (1311 vs 830 Ellipsen pro Frame über 120 Frames) und die Gräben mit der neuen, kulissen-
@@ -624,6 +639,10 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     und Eisfeld haben einen Ring in zwei Durchgängen. Bodenfüllung, Kante und Markierungen folgen
     dem Planeten, ebenso die Gräben (Wandlicht in `orb.lit`, Schatten in `orb.dark`,
     `rgbaFromHex()` als Hilfsfunktion)
+28. Schrott aufgewertet: zwei neue Sorten (`pipe` Wert 4, `chip` Wert 9), alle sechs mit eigener
+    Animation (wippendes Blech, drehendes Zahnrad, sich komprimierende Feder, blinkende LEDs),
+    zufälliger Drehung und Stufen-Leuchten (Stufe 2 mit pulsierendem Ring); dazu eine Sammel-Kombo
+    bis x2 innerhalb von 2,2 s, im schwebenden Text als `+13  x1.5` sichtbar
 
 ---
 

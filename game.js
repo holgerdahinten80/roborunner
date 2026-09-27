@@ -247,11 +247,18 @@
   ];
 
   var SCRAP_TYPES = [
-    { id: "bolt", name: "Schraube", value: 1, color: "#b9c4d2", w: 16, h: 16, weight: 34 },
-    { id: "spring", name: "Feder", value: 2, color: "#c9a86a", w: 20, h: 16, weight: 26 },
-    { id: "gear", name: "Zahnrad", value: 3, color: "#9fb0c4", w: 22, h: 22, weight: 20 },
-    { id: "plate", name: "Blech", value: 4, color: "#8fa3b8", w: 24, h: 18, weight: 13 },
-    { id: "coil", name: "Spule", value: 6, color: "#e0a35c", w: 20, h: 20, weight: 7 }
+    { id: "bolt", name: "Schraube", value: 1, color: "#b9c4d2", w: 16, h: 16, weight: 34, tier: 0 },
+    { id: "spring", name: "Feder", value: 2, color: "#c9a86a", w: 20, h: 16, weight: 24, tier: 0 },
+    { id: "gear", name: "Zahnrad", value: 3, color: "#9fb0c4", w: 22, h: 22, weight: 18, tier: 1 },
+    { id: "pipe", name: "Rohr", value: 4, color: "#8fa3b8", w: 24, h: 22, weight: 14, tier: 1 },
+    { id: "plate", name: "Blech", value: 6, color: "#a8b6c6", w: 24, h: 18, weight: 7, tier: 2 },
+    { id: "chip", name: "Platine", value: 9, color: "#5fbf7f", w: 24, h: 20, weight: 3, tier: 2 }
+  ];
+
+  var SCRAP_TIER_GLOW = [
+    { r: 18, alpha: 0.2, ring: false },
+    { r: 23, alpha: 0.3, ring: false },
+    { r: 29, alpha: 0.4, ring: true }
   ];
 
   var SHOP_ITEMS = [
@@ -296,6 +303,9 @@
     blasts: [],
     scrap: 0,
     scrapAt: 300,
+    canCount: 0,
+    scrapCombo: 1,
+    scrapComboTimer: 0,
     scrapItems: [],
     fireHeld: false,
     uiButtons: [],
@@ -1011,6 +1021,8 @@
     game.shopMessageTime = 0;
     game.scrapAt = 300;
     game.scrapItems.length = 0;
+    game.scrapCombo = 1;
+    game.scrapComboTimer = 0;
     game.enemies.length = 0;
     game.bullets.length = 0;
     game.shots.length = 0;
@@ -1509,11 +1521,13 @@
     game.scrapItems.push({
       type: t.id,
       value: t.value,
+      tier: t.tier,
       color: t.color,
       x: x,
       y: clamp(y, 190, GROUND_Y - 24),
       w: t.w,
       h: t.h,
+      rot: (Math.random() - 0.5) * 0.5,
       seed: Math.random() * 10
     });
     return true;
@@ -1529,10 +1543,21 @@
       var s = game.scrapItems[i];
       if (s.x < rx2 && s.x + s.w > rx1 && s.y < ry2 && s.y + s.h > ry1) {
         game.scrapItems.splice(i, 1);
-        game.scrap += s.value;
-        game.score += s.value * 4;
-        addLabel(s.x + s.w / 2, s.y - 4, "+" + s.value, "#ffd166");
-        burst(s.x + s.w / 2, s.y + s.h / 2, 6, [s.color, "#e8ecf1"]);
+
+        var mult = game.scrapComboTimer > 0
+          ? Math.min(game.scrapCombo + 0.25, 2)
+          : 1;
+        game.scrapCombo = mult;
+        game.scrapComboTimer = 2.2;
+
+        var gain = Math.round(s.value * mult);
+        game.scrap += gain;
+        game.score += gain * 4;
+        addLabel(s.x + s.w / 2, s.y - 6,
+          "+" + gain + (mult > 1 ? "  x" + mult : ""),
+          mult >= 1.75 ? "#ffd166" : "#7fe6ff");
+        burst(s.x + s.w / 2, s.y + s.h / 2, 6 + (s.tier || 0) * 6,
+          [s.color, "#e8ecf1", "#ffd166"]);
         sfxScrap(s.value);
       }
     }
@@ -2027,6 +2052,8 @@
       if (remaining > 260 && game.distance >= game.scrapAt && spawnScrap()) {
         game.scrapAt = game.distance + scrapSpacing();
       }
+
+      game.scrapComboTimer = Math.max(0, game.scrapComboTimer - dt);
 
       game.enemyTime -= dt;
       if (game.enemyTime <= 0) {
@@ -3056,97 +3083,234 @@
       var s = game.scrapItems[i];
       var cy = s.y + s.h / 2 + Math.sin(game.time * 3 + s.seed) * 2;
       var cx = s.x + s.w / 2;
+      var tier = SCRAP_TIER_GLOW[s.tier || 0];
 
-      var glow = ctx.createRadialGradient(cx, cy, 1, cx, cy, 24);
-      glow.addColorStop(0, "rgba(255, 209, 102, 0.26)");
+      var glow = ctx.createRadialGradient(cx, cy, 1, cx, cy, tier.r);
+      glow.addColorStop(0, "rgba(255, 209, 102, " + tier.alpha + ")");
       glow.addColorStop(1, "rgba(255, 209, 102, 0)");
       ctx.fillStyle = glow;
-      ctx.fillRect(cx - 24, cy - 24, 48, 48);
+      ctx.fillRect(cx - tier.r, cy - tier.r, tier.r * 2, tier.r * 2);
+
+      if (tier.ring) {
+        var pulse = 0.25 + 0.3 * Math.abs(Math.sin(game.time * 2.4 + s.seed));
+        ctx.strokeStyle = "rgba(255, 226, 150, " + pulse + ")";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 13 + (1 - pulse) * 8, 0, Math.PI * 2);
+        ctx.stroke();
+      }
 
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.fillStyle = s.color;
-      ctx.strokeStyle = "rgba(40, 50, 64, 0.6)";
+      ctx.rotate((s.rot || 0) + Math.sin(game.time * 1.6 + s.seed) * 0.12);
 
       if (s.type === "bolt") {
-        ctx.fillStyle = "#93a3b6";
-        rr(ctx, -2.5, -2, 5, 12, 2);
-        ctx.fill();
-        ctx.fillStyle = s.color;
-        ctx.beginPath();
-        ctx.arc(0, -5, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.strokeStyle = "rgba(40, 50, 64, 0.75)";
-        ctx.beginPath();
-        ctx.moveTo(-3, -5);
-        ctx.lineTo(3, -5);
-        ctx.moveTo(0, -8);
-        ctx.lineTo(0, -2);
-        ctx.stroke();
+        drawScrapBolt(s);
       } else if (s.type === "spring") {
-        ctx.strokeStyle = s.color;
-        ctx.lineWidth = 2.4;
-        ctx.beginPath();
-        for (var k = 0; k < 4; k++) {
-          ctx.moveTo(-6, -7 + k * 4.5);
-          ctx.lineTo(6, -4.8 + k * 4.5);
-        }
-        ctx.stroke();
-        ctx.fillStyle = "#8fa3b8";
-        ctx.fillRect(-7, -9.5, 14, 2.6);
-        ctx.fillRect(-7, 6.9, 14, 2.6);
+        drawScrapSpring(s);
       } else if (s.type === "gear") {
-        ctx.rotate(game.time * 1.4);
-        for (var t = 0; t < 8; t++) {
-          ctx.rotate(Math.PI / 4);
-          ctx.fillRect(-2.2, -11, 4.4, 5);
-        }
-        ctx.beginPath();
-        ctx.arc(0, 0, 8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "rgba(30, 38, 50, 0.85)";
-        ctx.beginPath();
-        ctx.arc(0, 0, 3, 0, Math.PI * 2);
-        ctx.fill();
+        drawScrapGear(s);
+      } else if (s.type === "pipe") {
+        drawScrapPipe(s);
       } else if (s.type === "plate") {
-        ctx.beginPath();
-        ctx.moveTo(-11, -6);
-        ctx.lineTo(11, -8);
-        ctx.lineTo(11, 7);
-        ctx.lineTo(-11, 5);
-        ctx.closePath();
-        ctx.fill();
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.fillStyle = "rgba(255,255,255,0.3)";
-        ctx.fillRect(-9, -5, 18, 2);
-        ctx.fillStyle = "rgba(30, 38, 50, 0.55)";
-        ctx.beginPath();
-        ctx.arc(-6, 0, 1.8, 0, Math.PI * 2);
-        ctx.arc(6, -1, 1.8, 0, Math.PI * 2);
-        ctx.fill();
+        drawScrapPlate(s);
       } else {
-        rr(ctx, -8, -9, 16, 18, 4);
-        ctx.fill();
-        ctx.strokeStyle = "rgba(90, 50, 10, 0.55)";
-        ctx.lineWidth = 1.6;
-        for (var c2 = 0; c2 < 3; c2++) {
-          ctx.beginPath();
-          ctx.ellipse(0, -5 + c2 * 5, 8, 2.4, 0, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.strokeStyle = "#e8ecf1";
-        ctx.beginPath();
-        ctx.moveTo(-8, 7);
-        ctx.lineTo(-12, 12);
-        ctx.moveTo(8, -7);
-        ctx.lineTo(12, -12);
-        ctx.stroke();
+        drawScrapChip(s);
       }
       ctx.restore();
     }
+  }
+
+  function scrapSteel(cx, cy, r, base, light, dark) {
+    var g = ctx.createRadialGradient(cx, cy, r * 0.1, cx, cy, r);
+    g.addColorStop(0, light);
+    g.addColorStop(0.55, base);
+    g.addColorStop(1, dark);
+    return g;
+  }
+
+  function drawScrapBolt(s) {
+    ctx.fillStyle = "#93a3b6";
+    rr(ctx, -2.5, -2, 5, 13, 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.fillRect(-1.6, -1, 1.4, 11);
+
+    ctx.fillStyle = scrapSteel(-2, -7, 8.5, s.color, "#eef4fb", "#6b7a8f");
+    ctx.beginPath();
+    ctx.arc(0, -6, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(40, 50, 64, 0.7)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(35, 45, 60, 0.8)";
+    ctx.beginPath();
+    ctx.moveTo(-3, -6);
+    ctx.lineTo(3, -6);
+    ctx.moveTo(0, -9);
+    ctx.lineTo(0, -3);
+    ctx.stroke();
+
+    var glint = 0.3 + 0.5 * Math.abs(Math.sin(game.time * 4 + s.seed));
+    ctx.fillStyle = "rgba(255,255,255," + glint + ")";
+    ctx.beginPath();
+    ctx.arc(-2.5, -8.5, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawScrapSpring(s) {
+    var squeeze = 1 + Math.sin(game.time * 5 + s.seed) * 0.14;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 2.2;
+    for (var k = 0; k < 5; k++) {
+      var y = -7 + k * 3.4 * squeeze;
+      ctx.beginPath();
+      ctx.moveTo(-6, y);
+      ctx.lineTo(6, y + 1.8);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-6, -7);
+    ctx.lineTo(6.5, -5.2);
+    ctx.stroke();
+    ctx.fillStyle = "#8fa3b8";
+    rr(ctx, -7.5, -10, 15, 3, 1.5);
+    ctx.fill();
+    rr(ctx, -7.5, 7, 15, 3, 1.5);
+    ctx.fill();
+  }
+
+  function drawScrapGear(s) {
+    var teeth = 8;
+    var r1 = 7.5;
+    var r2 = 11.5;
+    var half = Math.PI / teeth * 0.45;
+    ctx.rotate(game.time * 1.3 + s.seed);
+
+    ctx.fillStyle = s.color;
+    for (var t = 0; t < teeth; t++) {
+      var a = (t / teeth) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a - half) * r1, Math.sin(a - half) * r1);
+      ctx.lineTo(Math.cos(a - half * 0.6) * r2, Math.sin(a - half * 0.6) * r2);
+      ctx.lineTo(Math.cos(a + half * 0.6) * r2, Math.sin(a + half * 0.6) * r2);
+      ctx.lineTo(Math.cos(a + half) * r1, Math.sin(a + half) * r1);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 8.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    ctx.beginPath();
+    ctx.arc(-2.5, -3, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(28, 36, 48, 0.9)";
+    ctx.beginPath();
+    ctx.arc(0, 0, 3.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(28, 36, 48, 0.9)";
+    ctx.fillRect(-1, -9.5, 2, 3);
+  }
+
+  function drawScrapPipe(s) {
+    ctx.lineCap = "round";
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 5.4;
+    ctx.beginPath();
+    ctx.moveTo(-8, 8);
+    ctx.lineTo(-8, -1);
+    ctx.arc(0, -1, 8, Math.PI, 0, false);
+    ctx.lineTo(8, 8);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(255,255,255,0.28)";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(-10, 8);
+    ctx.lineTo(-10, -1);
+    ctx.arc(0, -1, 10, Math.PI, 0, false);
+    ctx.lineTo(10, 8);
+    ctx.stroke();
+
+    ctx.fillStyle = "#6b7a8f";
+    rr(ctx, -11, 5, 6, 5, 1.5);
+    ctx.fill();
+    rr(ctx, 5, 5, 6, 5, 1.5);
+    ctx.fill();
+  }
+
+  function drawScrapPlate(s) {
+    var bend = Math.sin(game.time * 2.2 + s.seed) * 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-11, -6);
+    ctx.lineTo(0, -8 - bend);
+    ctx.lineTo(11, -6);
+    ctx.lineTo(11, 6);
+    ctx.lineTo(0, 8 - bend);
+    ctx.lineTo(-11, 6);
+    ctx.closePath();
+    var g = ctx.createLinearGradient(-11, -8, 11, 8);
+    g.addColorStop(0, "#e2eaf3");
+    g.addColorStop(0.5, s.color);
+    g.addColorStop(1, "#71829a");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(40, 50, 64, 0.65)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.lineWidth = 1;
+    for (var i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-8, -4 + i * 4);
+      ctx.lineTo(8, -5 + i * 4);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(30, 38, 50, 0.5)";
+    ctx.beginPath();
+    ctx.arc(-6, 2, 1.8, 0, Math.PI * 2);
+    ctx.arc(6, -2, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawScrapChip(s) {
+    ctx.fillStyle = "#2f6b45";
+    rr(ctx, -10, -8, 20, 16, 3);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(20, 40, 28, 0.8)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = "#e8c23c";
+    for (var p = 0; p < 4; p++) {
+      ctx.fillRect(-8 + p * 5, -11, 3, 3.5);
+      ctx.fillRect(-8 + p * 5, 7.5, 3, 3.5);
+    }
+
+    var g = ctx.createLinearGradient(0, -4, 0, 4);
+    g.addColorStop(0, "#4a5568");
+    g.addColorStop(1, "#20262f");
+    ctx.fillStyle = g;
+    rr(ctx, -4.5, -3.5, 9, 7, 1.5);
+    ctx.fill();
+
+    var blink = 0.35 + 0.65 * Math.abs(Math.sin(game.time * 6 + s.seed));
+    ctx.fillStyle = "rgba(120, 255, 170, " + blink + ")";
+    ctx.beginPath();
+    ctx.arc(-7.5, -5.5, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255, 190, 90, " + (1 - blink) + ")";
+    ctx.beginPath();
+    ctx.arc(7.5, 5.5, 1.6, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   function drawSpares() {
