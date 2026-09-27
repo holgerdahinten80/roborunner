@@ -32,7 +32,6 @@
   var INVULN_TIME = 1.5;
   var CAN_W = 26;
   var CAN_H = 30;
-  var LEVEL_CLEAR_TIME = 2.6;
   var SPAWN_STOP_MARGIN = 900;
 
   var HIGHSCORE_KEY = "roborunner.highscore";
@@ -60,6 +59,33 @@
   var LAVA_BOTTOM = 30;
   var LAVA_TOP = 170;
   var LAVA_CHANCE = 0.4;
+  var TRIPLE_JUMP_VELOCITY = 560;
+  var SHOP_LOCK_TIME = 0.9;
+  var BULLET_SPEED = 230;
+  var SHOT_SPEED = 900;
+  var SHOT_COOLDOWN = 0.26;
+  var SHOT_SCORE = 25;
+
+  var ENEMY_TYPES = [
+    { id: "crawler", w: 46, h: 38, weight: 42 },
+    { id: "drone", w: 42, h: 28, weight: 34 },
+    { id: "turret", w: 46, h: 52, weight: 24 }
+  ];
+
+  var SCRAP_TYPES = [
+    { id: "bolt", name: "Schraube", value: 1, color: "#b9c4d2", w: 16, h: 16, weight: 34 },
+    { id: "spring", name: "Feder", value: 2, color: "#c9a86a", w: 20, h: 16, weight: 26 },
+    { id: "gear", name: "Zahnrad", value: 3, color: "#9fb0c4", w: 22, h: 22, weight: 20 },
+    { id: "plate", name: "Blech", value: 4, color: "#8fa3b8", w: 24, h: 18, weight: 13 },
+    { id: "coil", name: "Spule", value: 6, color: "#e0a35c", w: 20, h: 20, weight: 7 }
+  ];
+
+  var SHOP_ITEMS = [
+    { id: "life", label: "Ersatz-Leben", cost: 30, hint: "+1 Roboter (max 3)" },
+    { id: "tank", label: "Tank-Erweiterung", cost: 20, hint: "+25% Tankvolumen" },
+    { id: "shield", label: "Schutzschild", cost: 12, hint: "faengt den naechsten Treffer" },
+    { id: "jump", label: "Zusatz-Sprung", cost: 45, hint: "3. Sprung in der Luft" }
+  ];
 
   var TYPES = [
     { id: "crate", w: 46, h: 46, color: "#b0763c" },
@@ -79,7 +105,6 @@
     levelLength: 5200,
     levelBaseSpeed: START_SPEED,
     levelBonus: 0,
-    levelClear: 0,
     distance: 0,
     score: 0,
     highscore: readHighscore(),
@@ -91,6 +116,25 @@
     gateX: VIEW_W,
     spawnTime: 0.9,
     canAt: 180,
+    dead: false,
+    deadTimer: 0,
+    blasts: [],
+    scrap: 0,
+    scrapAt: 300,
+    scrapItems: [],
+    fuelMax: FUEL_MAX,
+    shield: 0,
+    maxJumps: 2,
+    shopLock: 0,
+    shopMessage: "",
+    shopMessageTime: 0,
+    shopRows: [],
+    enemies: [],
+    bullets: [],
+    shots: [],
+    shotCooldown: 0,
+    muzzle: 0,
+    enemyTime: 1.6,
     obstacles: [],
     pits: [],
     cans: [],
@@ -114,6 +158,7 @@
     y: GROUND_Y,
     vy: 0,
     onGround: true,
+    destroyed: false,
     jumps: 0,
     wheel: 0,
     blink: 1.6,
@@ -308,9 +353,47 @@
     tone({ freq: f * 2, duration: 0.05, type: "sine", gain: 0.07, delay: 0.02 });
   }
 
-  function sfxCrash() {
-    noise(0.3, 0.5, 900);
-    tone({ freq: 190, freqEnd: 65, duration: 0.3, type: "square", gain: 0.18 });
+  function sfxPlayerShot() {
+    tone({ freq: 1250, freqEnd: 480, duration: 0.1, type: "square", gain: 0.1 });
+    tone({ freq: 2100, freqEnd: 900, duration: 0.06, type: "sine", gain: 0.06 });
+  }
+
+  function sfxEnemyDown() {
+    noise(0.24, 0.3, 1400);
+    tone({ freq: 320, freqEnd: 80, duration: 0.26, type: "square", gain: 0.14 });
+    tone({ freq: 900, freqEnd: 1600, duration: 0.12, type: "triangle", gain: 0.1 });
+  }
+
+  function sfxShot() {
+    tone({ freq: 900, freqEnd: 260, duration: 0.12, type: "square", gain: 0.1 });
+    noise(0.1, 0.18, 2400);
+  }
+
+  function sfxExplosion() {
+    noise(0.5, 0.55, 950);
+    tone({ freq: 130, freqEnd: 38, duration: 0.5, type: "sine", gain: 0.26 });
+    tone({ freq: 300, freqEnd: 90, duration: 0.26, type: "square", gain: 0.14 });
+    noise(0.32, 0.32, 2600);
+    tone({ freq: 72, freqEnd: 40, duration: 0.7, type: "sine", gain: 0.2, delay: 0.06 });
+  }
+
+  function sfxScrap(value) {
+    var f = 620 + Math.min(value, 6) * 110;
+    tone({ freq: f, freqEnd: f * 1.35, duration: 0.08, type: "square", gain: 0.08 });
+  }
+
+  function sfxBuy() {
+    tone({ freq: 740, duration: 0.1, type: "triangle", gain: 0.16 });
+    tone({ freq: 1108, duration: 0.16, type: "triangle", gain: 0.16, delay: 0.09 });
+  }
+
+  function sfxDenied() {
+    tone({ freq: 220, freqEnd: 150, duration: 0.18, type: "square", gain: 0.12 });
+  }
+
+  function sfxShield() {
+    tone({ freq: 1400, freqEnd: 520, duration: 0.26, type: "sine", gain: 0.16 });
+    noise(0.2, 0.2, 1800);
   }
 
   function sfxLava() {
@@ -384,8 +467,91 @@
     robot.y = GROUND_Y;
     robot.vy = 0;
     robot.onGround = true;
+    robot.destroyed = false;
     robot.jumps = 0;
     robot.tilt = 0;
+  }
+
+  function explodeRobot(x, y, cause) {
+    var scale = cause === "pit" ? 0.6 : cause === "lava" ? 1.15 : 1;
+    var i;
+
+    game.blasts.push({ x: x, y: y, life: 0.3, max: 0.3, r0: 8, r1: 60 * scale, color: "#fff6c8", ring: false });
+    game.blasts.push({ x: x, y: y, life: 0.6, max: 0.6, r0: 14, r1: 122 * scale, color: "#ff9a3c", ring: false });
+    game.blasts.push({ x: x, y: y, life: 0.44, max: 0.44, r0: 16, r1: 196 * scale, color: "#ffd166", ring: true });
+
+    var debrisColors = ["#e6edf6", "#9aabc0", "#5b6b80", "#232b3a", "#7f8fa3", "#ff5d5d", "#46e0c0"];
+    var debris = Math.round(15 * scale);
+    for (i = 0; i < debris; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var sp = rand(130, 540) * scale;
+      game.particles.push({
+        x: x,
+        y: y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - rand(60, 280),
+        life: rand(0.7, 1.5),
+        max: 1.5,
+        size: rand(4, 10),
+        color: debrisColors[(Math.random() * debrisColors.length) | 0],
+        grav: 1500,
+        shape: "debris",
+        angle: Math.random() * Math.PI * 2,
+        spin: rand(-15, 15)
+      });
+    }
+
+    var smoke = Math.round(11 * scale);
+    for (i = 0; i < smoke; i++) {
+      game.particles.push({
+        x: x + rand(-16, 16),
+        y: y + rand(-16, 16),
+        vx: rand(-70, 70),
+        vy: rand(-140, -30),
+        life: rand(0.8, 1.6),
+        max: 1.6,
+        size: rand(9, 18),
+        color: "rgba(74, 82, 96, 0.55)",
+        grav: -240,
+        grow: 30,
+        shape: "smoke"
+      });
+    }
+
+    var sparks = Math.round(28 * scale);
+    for (i = 0; i < sparks; i++) {
+      var sa = Math.random() * Math.PI * 2;
+      var ss = rand(220, 760) * scale;
+      game.particles.push({
+        x: x,
+        y: y,
+        vx: Math.cos(sa) * ss,
+        vy: Math.sin(sa) * ss - 90,
+        life: rand(0.18, 0.55),
+        max: 0.55,
+        size: rand(2, 4.5),
+        color: "#ffe9a8",
+        grav: 900,
+        shape: "square"
+      });
+    }
+  }
+
+  function finishDeath() {
+    game.dead = false;
+
+    if (game.lives <= 0) {
+      game.state = "over";
+      sfxGameOver();
+      saveHighscore();
+      return;
+    }
+
+    game.fuel = Math.max(game.fuel, RESPAWN_FUEL);
+    game.invuln = INVULN_TIME;
+    game.jumpBuffer = 0;
+    resetRobot();
+    clearAhead();
   }
 
   function startLevel(n) {
@@ -394,11 +560,21 @@
     game.levelBaseSpeed = Math.min(MAX_SPEED - 140, START_SPEED + (n - 1) * 45);
     game.speed = game.levelBaseSpeed;
     game.distance = 0;
-    game.fuel = FUEL_MAX;
+    game.fuel = game.fuelMax;
     game.invuln = INVULN_TIME;
+    game.shopLock = SHOP_LOCK_TIME;
+    game.shopMessage = "";
+    game.shopMessageTime = 0;
+    game.scrapAt = 300;
+    game.scrapItems.length = 0;
+    game.enemies.length = 0;
+    game.bullets.length = 0;
+    game.shots.length = 0;
+    game.shotCooldown = 0;
+    game.muzzle = 0;
+    game.enemyTime = rand(1.6, 2.6);
     game.spawnTime = 1.2;
     game.canAt = 180;
-    game.levelClear = 0;
     game.levelBonus = 0;
     game.obstacles.length = 0;
     game.pits.length = 0;
@@ -406,6 +582,9 @@
     game.spares.length = 0;
     game.labels.length = 0;
     game.particles.length = 0;
+    game.blasts.length = 0;
+    game.dead = false;
+    game.deadTimer = 0;
     game.spareSpawned = false;
     game.spareAt = game.lives < START_LIVES && Math.random() < SPARE_CHANCE
       ? game.levelLength * rand(0.35, 0.75)
@@ -426,6 +605,13 @@
     game.scroll = 0;
     game.score = 0;
     game.lives = START_LIVES;
+    game.dead = false;
+    game.deadTimer = 0;
+    game.blasts.length = 0;
+    game.scrap = 0;
+    game.fuelMax = FUEL_MAX;
+    game.shield = 0;
+    game.maxJumps = 2;
     game.shake = 0;
     game.flash = 0;
     game.bestThisRun = false;
@@ -438,8 +624,10 @@
   function completeLevel() {
     game.levelBonus = Math.round(game.fuel) * 2;
     game.score += game.levelBonus;
-    game.state = "levelclear";
-    game.levelClear = LEVEL_CLEAR_TIME;
+    game.state = "shop";
+    game.shopLock = SHOP_LOCK_TIME;
+    game.shopMessage = "SCHROTT: " + game.scrap;
+    game.shopMessageTime = 2;
     game.flash = 0.2;
     game.jumpHeld = false;
     resetRobot();
@@ -477,47 +665,64 @@
     }
   }
 
+  function useShield(cause) {
+    game.shield = 0;
+    game.invuln = INVULN_TIME;
+    game.shake = 10;
+    game.flash = 0.25;
+    game.notice = "SCHILD ZERSTOERT";
+    game.noticeTime = 1.5;
+    burst(robot.x + ROBOT_W / 2, robot.y - ROBOT_H / 2, 20, ["#7fe6ff", "#46e0c0", "#e8ecf1"]);
+    sfxShield();
+
+    if (cause === "pit" || robot.y > GROUND_Y + 40) {
+      game.jumpBuffer = 0;
+      resetRobot();
+      clearAhead();
+    }
+  }
+
   function loseLife(cause) {
     game.lives -= 1;
-    game.shake = 15;
-    game.flash = 0.4;
+    game.deathCause = cause;
     robot.onGround = false;
+    robot.vy = 0;
+
+    var cx = robot.x + ROBOT_W / 2;
+    var cy = robot.y - ROBOT_H / 2;
 
     if (cause === "fuel") {
-      burst(robot.x + ROBOT_W / 2, robot.y - ROBOT_H / 2, 14, ["#8fa3b8", "#e8ecf1"]);
+      game.shake = 12;
+      game.flash = 0.3;
+      robot.destroyed = false;
+      burst(cx, cy, 14, ["#8fa3b8", "#e8ecf1"]);
       sfxFuelEmpty();
-    } else if (cause === "pit") {
-      burst(robot.x + ROBOT_W / 2, robot.y - ROBOT_H / 2, 22, ["#ffd166", "#ff7b54", "#e8ecf1"]);
-      sfxPit();
-    } else if (cause === "lava") {
-      burst(robot.x + ROBOT_W / 2, robot.y - ROBOT_H / 2, 26, ["#ffd166", "#ff7b30", "#c0290f"]);
-      sfxLava();
     } else {
-      burst(robot.x + ROBOT_W / 2, robot.y - ROBOT_H / 2, 22, ["#ffd166", "#ff7b54", "#e8ecf1"]);
-      sfxCrash();
+      game.shake = 22;
+      game.flash = 0.62;
+      robot.destroyed = true;
+      explodeRobot(cx, cy, cause);
+      if (cause === "pit") {
+        sfxPit();
+      } else if (cause === "lava") {
+        sfxLava();
+      } else {
+        sfxExplosion();
+      }
     }
 
     if (game.lives <= 0) {
       game.lives = 0;
-      game.deathCause = cause;
-      game.state = "over";
-      robot.vy = cause === "pit" ? 340 : -560;
-      sfxGameOver();
-      saveHighscore();
-      return;
     }
 
-    game.deathCause = cause;
-    game.fuel = Math.max(game.fuel, RESPAWN_FUEL);
-    game.invuln = INVULN_TIME;
+    game.dead = true;
+    game.deadTimer = cause === "fuel" ? 0.55 : 0.85;
     game.notice = cause === "fuel" ? "TANK LEER - 1 LEBEN WEG"
       : cause === "pit" ? "GRABEN - 1 LEBEN WEG"
       : cause === "lava" ? "LAVA - 1 LEBEN WEG"
+      : cause === "enemy" ? "GEGNER - 1 LEBEN WEG"
       : "CRASH - 1 LEBEN WEG";
-    game.noticeTime = 1.6;
-    game.jumpBuffer = 0;
-    resetRobot();
-    clearAhead();
+    game.noticeTime = 1.8;
   }
 
   function burst(x, y, count, colors) {
@@ -579,7 +784,7 @@
     if (d > 0.12 && Math.random() < 0.2 + d * 0.2) {
       var crusher = makeCrusher(VIEW_W + 40);
       game.obstacles.push(crusher);
-      dropCans(crusher.x, crusher.x + crusher.w);
+      dropPickups(crusher.x, crusher.x + crusher.w);
       game.spawnTime = rand(1.5, 2.0) - d * 0.45;
       if (game.spawnTime < 0.85) {
         game.spawnTime = 0.85;
@@ -704,11 +909,17 @@
     }
   }
 
-  function dropCans(fromX, toX) {
+  function dropPickups(fromX, toX) {
     for (var i = game.cans.length - 1; i >= 0; i--) {
       var c = game.cans[i];
       if (c.x + c.w > fromX && c.x < toX) {
         game.cans.splice(i, 1);
+      }
+    }
+    for (var j = game.scrapItems.length - 1; j >= 0; j--) {
+      var s = game.scrapItems[j];
+      if (s.x + s.w > fromX && s.x < toX) {
+        game.scrapItems.splice(j, 1);
       }
     }
   }
@@ -809,6 +1020,376 @@
     }
   }
 
+  function pickScrapType() {
+    var total = 0;
+    var i;
+    for (i = 0; i < SCRAP_TYPES.length; i++) {
+      total += SCRAP_TYPES[i].weight;
+    }
+    var roll = Math.random() * total;
+    for (i = 0; i < SCRAP_TYPES.length; i++) {
+      roll -= SCRAP_TYPES[i].weight;
+      if (roll <= 0) {
+        return SCRAP_TYPES[i];
+      }
+    }
+    return SCRAP_TYPES[0];
+  }
+
+  function scrapSpacing() {
+    return rand(240, 430);
+  }
+
+  function spawnScrap() {
+    var t = pickScrapType();
+    var x = VIEW_W + 20;
+    var high = Math.random() < 0.35;
+    var y = high ? GROUND_Y - rand(96, 146) : GROUND_Y - rand(28, 44);
+    var from = x - 40;
+    var to = x + t.w + 40;
+
+    for (var i = 0; i < game.obstacles.length; i++) {
+      var o = game.obstacles[i];
+      if (o.x < to && o.x + o.w > from) {
+        return false;
+      }
+    }
+    for (var j = 0; j < game.pits.length; j++) {
+      var p = game.pits[j];
+      if (p.x < to && p.x + p.w > from) {
+        return false;
+      }
+    }
+
+    game.scrapItems.push({
+      type: t.id,
+      value: t.value,
+      color: t.color,
+      x: x,
+      y: clamp(y, 190, GROUND_Y - 24),
+      w: t.w,
+      h: t.h,
+      seed: Math.random() * 10
+    });
+    return true;
+  }
+
+  function collectScrap() {
+    var rx1 = robot.x - 6;
+    var rx2 = robot.x + ROBOT_W + 6;
+    var ry1 = robot.y - ROBOT_H - 10;
+    var ry2 = robot.y + 6;
+
+    for (var i = game.scrapItems.length - 1; i >= 0; i--) {
+      var s = game.scrapItems[i];
+      if (s.x < rx2 && s.x + s.w > rx1 && s.y < ry2 && s.y + s.h > ry1) {
+        game.scrapItems.splice(i, 1);
+        game.scrap += s.value;
+        game.score += s.value * 4;
+        addLabel(s.x + s.w / 2, s.y - 4, "+" + s.value, "#ffd166");
+        burst(s.x + s.w / 2, s.y + s.h / 2, 6, [s.color, "#e8ecf1"]);
+        sfxScrap(s.value);
+      }
+    }
+  }
+
+  function shopItemState(item) {
+    if (item.id === "life") {
+      return game.lives >= START_LIVES ? "voll" : (game.scrap >= item.cost ? "ok" : "teuer");
+    }
+    if (item.id === "tank") {
+      return game.fuelMax >= FUEL_MAX + 100 ? "voll" : (game.scrap >= item.cost ? "ok" : "teuer");
+    }
+    if (item.id === "shield") {
+      return game.shield > 0 ? "voll" : (game.scrap >= item.cost ? "ok" : "teuer");
+    }
+    return game.maxJumps >= 3 ? "voll" : (game.scrap >= item.cost ? "ok" : "teuer");
+  }
+
+  function buyShopItem(index) {
+    if (index < 0 || index >= SHOP_ITEMS.length) {
+      return;
+    }
+    var item = SHOP_ITEMS[index];
+    var state = shopItemState(item);
+
+    if (state === "voll") {
+      game.shopMessage = item.label + " ist schon voll";
+      game.shopMessageTime = 1.6;
+      sfxDenied();
+      return;
+    }
+    if (state === "teuer") {
+      game.shopMessage = "Zu wenig Schrott fuer " + item.label;
+      game.shopMessageTime = 1.6;
+      sfxDenied();
+      return;
+    }
+
+    game.scrap -= item.cost;
+
+    if (item.id === "life") {
+      game.lives = Math.min(START_LIVES, game.lives + 1);
+    } else if (item.id === "tank") {
+      game.fuelMax += 25;
+      game.fuel = Math.min(game.fuelMax, game.fuel + 25);
+    } else if (item.id === "shield") {
+      game.shield = 1;
+    } else {
+      game.maxJumps = 3;
+    }
+
+    game.shopMessage = item.label + " gekauft";
+    game.shopMessageTime = 1.8;
+    sfxBuy();
+  }
+
+  function pickEnemyType() {
+    var total = 0;
+    var i;
+    for (i = 0; i < ENEMY_TYPES.length; i++) {
+      total += ENEMY_TYPES[i].weight;
+    }
+    var roll = Math.random() * total;
+    for (i = 0; i < ENEMY_TYPES.length; i++) {
+      roll -= ENEMY_TYPES[i].weight;
+      if (roll <= 0) {
+        return ENEMY_TYPES[i];
+      }
+    }
+    return ENEMY_TYPES[0];
+  }
+
+  function spawnEnemy() {
+    var t = pickEnemyType();
+    var x = VIEW_W + 40;
+    var e = {
+      type: t.id,
+      x: x,
+      w: t.w,
+      h: t.h,
+      y: GROUND_Y - t.h,
+      vy: 0,
+      hoverY: GROUND_Y - t.h,
+      chase: 0,
+      state: "hover",
+      timer: 0,
+      flash: 0,
+      legPhase: 0,
+      seed: Math.random() * 10
+    };
+
+    if (e.type === "crawler") {
+      e.chase = Math.min(160, 70 + game.level * 9);
+      e.timer = 0;
+    } else if (e.type === "drone") {
+      e.hoverY = GROUND_Y - 168 + rand(-22, 22);
+      e.y = e.hoverY;
+      e.timer = rand(0.7, 1.6);
+    } else {
+      e.timer = rand(0.32, 0.6);
+    }
+
+    game.enemies.push(e);
+  }
+
+  function updateEnemies(dt) {
+    for (var i = game.enemies.length - 1; i >= 0; i--) {
+      var e = game.enemies[i];
+      e.flash = Math.max(0, e.flash - dt);
+      e.legPhase += dt * 12;
+
+      if (e.type === "crawler") {
+        e.x -= (game.speed + e.chase) * dt;
+      } else if (e.type === "drone") {
+        e.x -= game.speed * dt;
+        if (e.state === "hover") {
+          e.timer -= dt;
+          e.y = e.hoverY + Math.sin(game.time * 3 + e.seed) * 6;
+          if (e.timer <= 0 && e.x < 580) {
+            e.state = "dive";
+            e.vy = 330;
+            e.flash = 0.4;
+          }
+        } else if (e.state === "dive") {
+          e.y += e.vy * dt;
+          if (e.y >= GROUND_Y - e.h - 4) {
+            e.y = GROUND_Y - e.h - 4;
+            e.state = "rise";
+          }
+        } else {
+          e.y -= 300 * dt;
+          if (e.y <= e.hoverY) {
+            e.y = e.hoverY;
+            e.state = "hover";
+            e.timer = rand(1.3, 2.4);
+          }
+        }
+      } else {
+        e.x -= game.speed * dt;
+        if (e.x < 780 && e.x > robot.x + 40) {
+          e.timer -= dt;
+        }
+        if (e.timer <= 0 && e.x < 780 && e.x > robot.x + 40) {
+          e.timer = rand(1.2, 1.8);
+          e.flash = 0.14;
+          game.bullets.push({
+            x: e.x - 4,
+            y: GROUND_Y - 48,
+            w: 18,
+            h: 13,
+            seed: Math.random() * 10
+          });
+          sfxShot();
+        }
+      }
+
+      if (e.x + e.w < -80) {
+        game.enemies.splice(i, 1);
+      }
+    }
+
+    for (var b = game.bullets.length - 1; b >= 0; b--) {
+      var bullet = game.bullets[b];
+      bullet.x -= (game.speed + BULLET_SPEED) * dt;
+      if (bullet.x + bullet.w < -40) {
+        game.bullets.splice(b, 1);
+      }
+    }
+  }
+
+  function fireShot() {
+    if (game.state !== "playing" || game.dead || game.shotCooldown > 0) {
+      return;
+    }
+    game.shotCooldown = SHOT_COOLDOWN;
+    game.muzzle = 0.1;
+    game.shots.push({
+      x: robot.x + ROBOT_W - 4,
+      y: robot.y - 42,
+      w: 24,
+      h: 9,
+      seed: Math.random() * 10
+    });
+    sfxPlayerShot();
+  }
+
+  function killEnemy(e) {
+    var cx = e.x + e.w / 2;
+    var cy = e.y + e.h / 2;
+    var i;
+
+    game.blasts.push({ x: cx, y: cy, life: 0.24, max: 0.24, r0: 5, r1: 42, color: "#fff6c8", ring: false });
+    game.blasts.push({ x: cx, y: cy, life: 0.34, max: 0.34, r0: 9, r1: 76, color: "#7fe6ff", ring: true });
+
+    for (i = 0; i < 14; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var sp = rand(120, 430);
+      game.particles.push({
+        x: cx,
+        y: cy,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - rand(40, 180),
+        life: rand(0.4, 1.0),
+        max: 1.0,
+        size: rand(3, 8),
+        color: ["#5c6b80", "#39424f", "#8b97a8", "#ff8a6a"][(Math.random() * 4) | 0],
+        grav: 1500,
+        shape: "debris",
+        angle: Math.random() * Math.PI * 2,
+        spin: rand(-13, 13)
+      });
+    }
+
+    for (i = 0; i < 6; i++) {
+      game.particles.push({
+        x: cx + rand(-12, 12),
+        y: cy + rand(-12, 12),
+        vx: rand(-60, 60),
+        vy: rand(-130, -30),
+        life: rand(0.5, 1.1),
+        max: 1.1,
+        size: rand(7, 14),
+        color: "rgba(74, 82, 96, 0.5)",
+        grav: -220,
+        grow: 24,
+        shape: "smoke"
+      });
+    }
+
+    game.score += SHOT_SCORE;
+    game.scrap += 1;
+    addLabel(cx, cy - 10, "+" + SHOT_SCORE, "#7fe6ff");
+    sfxEnemyDown();
+  }
+
+  function updateShots(dt) {
+    game.shotCooldown = Math.max(0, game.shotCooldown - dt);
+
+    for (var i = game.shots.length - 1; i >= 0; i--) {
+      var shot = game.shots[i];
+      shot.x += SHOT_SPEED * dt;
+
+      if (shot.x > VIEW_W + 40) {
+        game.shots.splice(i, 1);
+        continue;
+      }
+
+      var consumed = false;
+
+      for (var b = game.bullets.length - 1; b >= 0; b--) {
+        var bullet = game.bullets[b];
+        if (shot.x < bullet.x + bullet.w && shot.x + shot.w > bullet.x
+          && shot.y < bullet.y + bullet.h && shot.y + shot.h > bullet.y) {
+          game.bullets.splice(b, 1);
+          burst(bullet.x + bullet.w / 2, bullet.y + bullet.h / 2, 8, ["#ffd166", "#7fe6ff", "#e8ecf1"]);
+          game.score += 10;
+          consumed = true;
+          break;
+        }
+      }
+
+      if (!consumed) {
+        for (var e = game.enemies.length - 1; e >= 0; e--) {
+          var enemy = game.enemies[e];
+          if (shot.x + shot.w - 4 > enemy.x && shot.x + 4 < enemy.x + enemy.w
+            && shot.y + shot.h > enemy.y && shot.y < enemy.y + enemy.h) {
+            killEnemy(enemy);
+            game.enemies.splice(e, 1);
+            consumed = true;
+            break;
+          }
+        }
+      }
+
+      if (consumed) {
+        game.shots.splice(i, 1);
+      }
+    }
+  }
+
+  function hitsEnemy() {
+    var rx1 = robot.x + 6;
+    var rx2 = robot.x + ROBOT_W - 6;
+    var ry1 = robot.y - ROBOT_H + 6;
+    var ry2 = robot.y - 3;
+
+    for (var i = 0; i < game.enemies.length; i++) {
+      var e = game.enemies[i];
+      if (e.x + 4 < rx2 && e.x + e.w - 4 > rx1 && e.y + 4 < ry2 && e.y + e.h - 4 > ry1) {
+        return true;
+      }
+    }
+    for (var b = 0; b < game.bullets.length; b++) {
+      var bullet = game.bullets[b];
+      if (bullet.x + 2 < rx2 && bullet.x + bullet.w - 2 > rx1
+        && bullet.y + 2 < ry2 && bullet.y + bullet.h - 2 > ry1) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function addLabel(x, y, text, color) {
     game.labels.push({
       x: x,
@@ -830,7 +1411,7 @@
       var c = game.cans[i];
       if (c.x < rx2 && c.x + c.w > rx1 && c.y < ry2 && c.y + c.h > ry1) {
         game.cans.splice(i, 1);
-        game.fuel = Math.min(FUEL_MAX, game.fuel + FUEL_PER_CAN);
+        game.fuel = Math.min(game.fuelMax, game.fuel + FUEL_PER_CAN);
         game.score += 15;
         addLabel(c.x + c.w / 2, c.y - 4, "+" + FUEL_PER_CAN, "#7fe6ff");
         burst(c.x + c.w / 2, c.y + c.h / 2, 10, ["#7fe6ff", "#46e0c0", "#e8ecf1"]);
@@ -842,13 +1423,22 @@
   function update(dt) {
     game.time += dt;
 
-    if (game.state === "levelclear") {
-      game.levelClear -= dt;
+    if (game.state === "shop") {
+      game.shopLock = Math.max(0, game.shopLock - dt);
+      game.shopMessageTime = Math.max(0, game.shopMessageTime - dt);
       game.flash = Math.max(0, game.flash - dt * 1.6);
       game.shake = Math.max(0, game.shake - dt * 42);
       updateFx(dt);
-      if (game.levelClear <= 0) {
-        startLevel(game.level + 1);
+      return;
+    }
+
+    if (game.dead) {
+      game.deadTimer -= dt;
+      game.flash = Math.max(0, game.flash - dt * 1.6);
+      game.shake = Math.max(0, game.shake - dt * 42);
+      updateFx(dt);
+      if (game.deadTimer <= 0) {
+        finishDeath();
       }
       return;
     }
@@ -914,8 +1504,8 @@
     if (game.state === "playing" && game.jumpBuffer > 0) {
       if (robot.jumps === 0 && (robot.onGround || game.coyote > 0)) {
         doJump(1, JUMP_VELOCITY);
-      } else if (robot.jumps === 1 && robot.y <= GROUND_Y + 20) {
-        doJump(2, DOUBLE_JUMP_VELOCITY);
+      } else if (robot.jumps >= 1 && robot.jumps < game.maxJumps && robot.y <= GROUND_Y + 20) {
+        doJump(robot.jumps + 1, robot.jumps === 1 ? DOUBLE_JUMP_VELOCITY : TRIPLE_JUMP_VELOCITY);
       }
     }
 
@@ -967,6 +1557,18 @@
 
       if (game.spareAt > 0 && !game.spareSpawned && game.distance >= game.spareAt) {
         game.spareSpawned = spawnSpare();
+      }
+
+      if (remaining > 260 && game.distance >= game.scrapAt && spawnScrap()) {
+        game.scrapAt = game.distance + scrapSpacing();
+      }
+
+      game.enemyTime -= dt;
+      if (game.enemyTime <= 0) {
+        if (remaining > SPAWN_STOP_MARGIN && rightmostEdge() < VIEW_W - 340) {
+          spawnEnemy();
+        }
+        game.enemyTime = Math.max(1.0, rand(1.3, 2.4) - difficulty() * 0.4);
       }
     }
 
@@ -1021,6 +1623,16 @@
       }
     }
 
+    for (var qi = game.scrapItems.length - 1; qi >= 0; qi--) {
+      var item = game.scrapItems[qi];
+      if (game.state === "playing") {
+        item.x -= game.speed * dt;
+      }
+      if (item.x + item.w < -80) {
+        game.scrapItems.splice(qi, 1);
+      }
+    }
+
     for (var si = game.spares.length - 1; si >= 0; si--) {
       var spare = game.spares[si];
       if (game.state === "playing") {
@@ -1032,15 +1644,28 @@
     }
 
     if (game.state === "playing") {
+      updateEnemies(dt);
+      updateShots(dt);
       collectCans();
       collectSpares();
+      collectScrap();
       if (game.invuln <= 0) {
+        var hitCause = null;
         if (hitsObstacle()) {
-          loseLife("hit");
+          hitCause = "hit";
         } else if (hitsLavaDrop()) {
-          loseLife("lava");
+          hitCause = "lava";
+        } else if (hitsEnemy()) {
+          hitCause = "enemy";
         } else if (robot.y > GROUND_Y + 60) {
-          loseLife("pit");
+          hitCause = "pit";
+        }
+        if (hitCause) {
+          if (game.shield > 0) {
+            useShield(hitCause);
+          } else {
+            loseLife(hitCause);
+          }
         }
       } else if (robot.y > GROUND_Y + 60) {
         resetRobot();
@@ -1062,16 +1687,29 @@
         game.particles.splice(p, 1);
         continue;
       }
-      pt.vy += 1500 * dt;
+      pt.vy += (pt.grav === undefined ? 1500 : pt.grav) * dt;
       pt.x += pt.vx * dt;
       pt.y += pt.vy * dt;
+      if (pt.spin) {
+        pt.angle += pt.spin * dt;
+      }
+      if (pt.grow) {
+        pt.size += pt.grow * dt;
+      }
       if (pt.y > GROUND_Y) {
-        if (isOverPit(pt.x)) {
+        if (pt.shape === "smoke" || isOverPit(pt.x)) {
           continue;
         }
         pt.y = GROUND_Y;
         pt.vy *= -0.35;
         pt.vx *= 0.7;
+      }
+    }
+
+    for (var b = game.blasts.length - 1; b >= 0; b--) {
+      game.blasts[b].life -= dt;
+      if (game.blasts[b].life <= 0) {
+        game.blasts.splice(b, 1);
       }
     }
 
@@ -1084,6 +1722,7 @@
       }
     }
 
+    game.muzzle = Math.max(0, game.muzzle - dt);
     game.shake = Math.max(0, game.shake - dt * 42);
     game.flash = Math.max(0, game.flash - dt * 1.6);
   }
@@ -1186,8 +1825,13 @@
     drawGate();
     drawCans();
     drawSpares();
+    drawScrapItems();
     drawObstacles();
+    drawEnemies();
+    drawBullets();
+    drawShots();
     drawParticles();
+    drawBlasts();
     drawLabels();
     drawRobot();
     ctx.restore();
@@ -1717,6 +2361,104 @@
     }
   }
 
+  function drawScrapItems() {
+    for (var i = 0; i < game.scrapItems.length; i++) {
+      var s = game.scrapItems[i];
+      var cy = s.y + s.h / 2 + Math.sin(game.time * 3 + s.seed) * 2;
+      var cx = s.x + s.w / 2;
+
+      var glow = ctx.createRadialGradient(cx, cy, 1, cx, cy, 24);
+      glow.addColorStop(0, "rgba(255, 209, 102, 0.26)");
+      glow.addColorStop(1, "rgba(255, 209, 102, 0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(cx - 24, cy - 24, 48, 48);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.fillStyle = s.color;
+      ctx.strokeStyle = "rgba(40, 50, 64, 0.6)";
+
+      if (s.type === "bolt") {
+        ctx.fillStyle = "#93a3b6";
+        rr(ctx, -2.5, -2, 5, 12, 2);
+        ctx.fill();
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(0, -5, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(40, 50, 64, 0.75)";
+        ctx.beginPath();
+        ctx.moveTo(-3, -5);
+        ctx.lineTo(3, -5);
+        ctx.moveTo(0, -8);
+        ctx.lineTo(0, -2);
+        ctx.stroke();
+      } else if (s.type === "spring") {
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        for (var k = 0; k < 4; k++) {
+          ctx.moveTo(-6, -7 + k * 4.5);
+          ctx.lineTo(6, -4.8 + k * 4.5);
+        }
+        ctx.stroke();
+        ctx.fillStyle = "#8fa3b8";
+        ctx.fillRect(-7, -9.5, 14, 2.6);
+        ctx.fillRect(-7, 6.9, 14, 2.6);
+      } else if (s.type === "gear") {
+        ctx.rotate(game.time * 1.4);
+        for (var t = 0; t < 8; t++) {
+          ctx.rotate(Math.PI / 4);
+          ctx.fillRect(-2.2, -11, 4.4, 5);
+        }
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(30, 38, 50, 0.85)";
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (s.type === "plate") {
+        ctx.beginPath();
+        ctx.moveTo(-11, -6);
+        ctx.lineTo(11, -8);
+        ctx.lineTo(11, 7);
+        ctx.lineTo(-11, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        ctx.fillRect(-9, -5, 18, 2);
+        ctx.fillStyle = "rgba(30, 38, 50, 0.55)";
+        ctx.beginPath();
+        ctx.arc(-6, 0, 1.8, 0, Math.PI * 2);
+        ctx.arc(6, -1, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        rr(ctx, -8, -9, 16, 18, 4);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(90, 50, 10, 0.55)";
+        ctx.lineWidth = 1.6;
+        for (var c2 = 0; c2 < 3; c2++) {
+          ctx.beginPath();
+          ctx.ellipse(0, -5 + c2 * 5, 8, 2.4, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = "#e8ecf1";
+        ctx.beginPath();
+        ctx.moveTo(-8, 7);
+        ctx.lineTo(-12, 12);
+        ctx.moveTo(8, -7);
+        ctx.lineTo(12, -12);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
   function drawSpares() {
     for (var i = 0; i < game.spares.length; i++) {
       var s = game.spares[i];
@@ -2032,17 +2774,277 @@
     return "rgb(" + f(r) + "," + f(g) + "," + f(b) + ")";
   }
 
+  function drawEnemies() {
+    for (var i = 0; i < game.enemies.length; i++) {
+      var e = game.enemies[i];
+
+      ctx.fillStyle = "rgba(0,0,0,0.28)";
+      ctx.beginPath();
+      ctx.ellipse(e.x + e.w / 2, GROUND_Y + 4, e.w * 0.5, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (e.type === "crawler") {
+        drawCrawler(e);
+      } else if (e.type === "drone") {
+        drawDrone(e);
+      } else {
+        drawTurret(e);
+      }
+    }
+  }
+
+  function drawCrawler(e) {
+    var x = e.x;
+    var y = e.y;
+    var w = e.w;
+    var h = e.h;
+    var cx = x + w / 2;
+
+    ctx.strokeStyle = "#3d4a5e";
+    ctx.lineWidth = 3;
+    for (var leg = 0; leg < 3; leg++) {
+      var lx = x + 8 + leg * 15;
+      var swing = Math.sin(e.legPhase + leg * 1.6) * 5;
+      ctx.beginPath();
+      ctx.moveTo(lx, y + h - 10);
+      ctx.lineTo(lx + swing, y + h + 4);
+      ctx.stroke();
+    }
+
+    var body = ctx.createLinearGradient(0, y, 0, y + h);
+    body.addColorStop(0, "#6b7a8f");
+    body.addColorStop(0.5, "#46536a");
+    body.addColorStop(1, "#2a3444");
+    ctx.fillStyle = body;
+    rr(ctx, x, y + 6, w, h - 12, 10);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(14, 20, 30, 0.85)";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.fillStyle = "#39424f";
+    for (var spike = 0; spike < 3; spike++) {
+      ctx.beginPath();
+      ctx.moveTo(x + 10 + spike * 12, y + 6);
+      ctx.lineTo(x + 15 + spike * 12, y - 5);
+      ctx.lineTo(x + 20 + spike * 12, y + 6);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    var eye = 0.55 + 0.45 * Math.abs(Math.sin(game.time * 6 + e.seed));
+    ctx.fillStyle = "rgba(255, 90, 90, " + eye + ")";
+    rr(ctx, cx - 12, y + 14, 22, 7, 3.5);
+    ctx.fill();
+    ctx.fillStyle = "#1b2430";
+    ctx.fillRect(x + 6, y + h - 14, w - 12, 3);
+  }
+
+  function drawDrone(e) {
+    var x = e.x;
+    var y = e.y;
+    var w = e.w;
+    var h = e.h;
+    var cx = x + w / 2;
+    var cy = y + h / 2;
+    var diving = e.state === "dive";
+
+    var glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, 34);
+    glow.addColorStop(0, diving ? "rgba(255, 110, 70, 0.4)" : "rgba(120, 200, 255, 0.25)");
+    glow.addColorStop(1, "rgba(120, 200, 255, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - 34, cy - 34, 68, 68);
+
+    ctx.strokeStyle = "rgba(160, 190, 220, 0.55)";
+    ctx.lineWidth = 2;
+    var spin = Math.sin(game.time * 26 + e.seed) * 14;
+    ctx.beginPath();
+    ctx.moveTo(cx - 24, y - 4);
+    ctx.lineTo(cx + 24, y - 4);
+    ctx.moveTo(cx - spin, y - 4);
+    ctx.lineTo(cx + spin, y - 4);
+    ctx.stroke();
+
+    var body = ctx.createLinearGradient(0, y, 0, y + h);
+    body.addColorStop(0, diving ? "#b8552f" : "#7f8fa3");
+    body.addColorStop(1, diving ? "#6d2a16" : "#39424f");
+    ctx.fillStyle = body;
+    rr(ctx, x, y, w, h, 12);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(14, 20, 30, 0.85)";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    var eye = 0.5 + 0.5 * Math.abs(Math.sin(game.time * 7 + e.seed));
+    ctx.fillStyle = diving ? "rgba(255, 210, 120, " + eye + ")" : "rgba(255, 90, 90, " + eye + ")";
+    ctx.beginPath();
+    ctx.arc(cx, cy + 2, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#1b2430";
+    ctx.beginPath();
+    ctx.arc(cx, cy + 2, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawTurret(e) {
+    var x = e.x;
+    var y = e.y;
+    var w = e.w;
+    var h = e.h;
+    var cx = x + w / 2;
+
+    var base = ctx.createLinearGradient(0, y, 0, y + h);
+    base.addColorStop(0, "#8b97a8");
+    base.addColorStop(0.45, "#5c6b80");
+    base.addColorStop(1, "#2a3444");
+    ctx.fillStyle = base;
+    rr(ctx, x, y + 12, w, h - 12, 8);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(14, 20, 30, 0.85)";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.fillStyle = "#46536a";
+    rr(ctx, x + 8, y, w - 16, 18, 7);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(14, 20, 30, 0.8)";
+    ctx.stroke();
+
+    var aim = Math.sin(game.time * 2.2 + e.seed) * 3;
+    ctx.fillStyle = "#39424f";
+    rr(ctx, x - 16, y + 6 + aim, 22, 11, 4);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(14, 20, 30, 0.8)";
+    ctx.stroke();
+
+    if (e.flash > 0) {
+      ctx.fillStyle = "rgba(255, 220, 140, " + Math.min(1, e.flash * 7) + ")";
+      ctx.beginPath();
+      ctx.arc(x - 16, y + 11 + aim, 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    var eye = 0.5 + 0.5 * Math.abs(Math.sin(game.time * 5 + e.seed));
+    ctx.fillStyle = "rgba(255, 90, 90, " + eye + ")";
+    ctx.beginPath();
+    ctx.arc(cx, y + 26, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#e8c23c";
+    for (var stripe = 0; stripe < 3; stripe++) {
+      ctx.fillRect(x + 5 + stripe * 13, y + h - 12, 9, 5);
+    }
+  }
+
+  function drawBullets() {
+    for (var i = 0; i < game.bullets.length; i++) {
+      var b = game.bullets[i];
+      var cx = b.x + b.w / 2;
+      var cy = b.y + b.h / 2;
+
+      ctx.fillStyle = "rgba(255, 140, 60, 0.35)";
+      ctx.beginPath();
+      ctx.ellipse(cx + 12, cy, 16, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      var g = ctx.createRadialGradient(cx, cy, 1, cx, cy, 12);
+      g.addColorStop(0, "#fff6d0");
+      g.addColorStop(0.45, "#ffb45c");
+      g.addColorStop(1, "rgba(200, 60, 20, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#fff1c0";
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawShots() {
+    for (var i = 0; i < game.shots.length; i++) {
+      var s = game.shots[i];
+      var cy = s.y + s.h / 2;
+      var cx = s.x + s.w / 2;
+
+      ctx.fillStyle = "rgba(127, 230, 255, 0.3)";
+      ctx.beginPath();
+      ctx.ellipse(cx - 14, cy, 20, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      var g = ctx.createRadialGradient(cx, cy, 1, cx, cy, 13);
+      g.addColorStop(0, "#ffffff");
+      g.addColorStop(0.35, "#c9f4ff");
+      g.addColorStop(0.7, "#46e0c0");
+      g.addColorStop(1, "rgba(70, 224, 192, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#eaffff";
+      rr(ctx, s.x + 4, s.y + 2, s.w - 8, s.h - 4, 3);
+      ctx.fill();
+    }
+  }
+
   function drawParticles() {
     for (var i = 0; i < game.particles.length; i++) {
       var p = game.particles[i];
-      ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+      ctx.globalAlpha = clamp(p.life / p.max, 0, 1) * (p.shape === "smoke" ? 0.7 : 1);
       ctx.fillStyle = p.color;
-      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+
+      if (p.shape === "debris") {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle || 0);
+        ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+        ctx.restore();
+      } else if (p.shape === "smoke") {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(1, p.size / 2), 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawBlasts() {
+    for (var i = 0; i < game.blasts.length; i++) {
+      var b = game.blasts[i];
+      var t = 1 - b.life / b.max;
+      var r = b.r0 + (b.r1 - b.r0) * t;
+      var alpha = (1 - t) * (1 - t);
+      ctx.globalAlpha = alpha;
+
+      if (b.ring) {
+        ctx.strokeStyle = b.color;
+        ctx.lineWidth = 3 + 6 * (1 - t);
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        var g = ctx.createRadialGradient(b.x, b.y, r * 0.1, b.x, b.y, Math.max(r, 1));
+        g.addColorStop(0, "#fffce8");
+        g.addColorStop(0.45, b.color);
+        g.addColorStop(1, "rgba(150, 30, 8, 0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
   }
 
   function drawRobot() {
+    if (robot.destroyed) {
+      return;
+    }
     var bob = robot.onGround && game.state !== "over" ? Math.sin(game.time * 22) * 1.6 : 0;
 
     ctx.save();
@@ -2150,6 +3152,28 @@
       ctx.stroke();
     }
 
+    if (game.muzzle > 0) {
+      var flash = clamp(game.muzzle / 0.1, 0, 1);
+      ctx.fillStyle = "rgba(200, 250, 255, " + flash + ")";
+      ctx.beginPath();
+      ctx.arc(24, -40, 9 * flash + 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(16, -43, 16 * flash, 6);
+    }
+
+    if (game.shield > 0) {
+      var bubble = 0.3 + 0.35 * Math.abs(Math.sin(game.time * 4));
+      ctx.fillStyle = "rgba(127, 230, 255, " + bubble * 0.25 + ")";
+      ctx.beginPath();
+      ctx.arc(0, -32, 40, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(127, 230, 255, " + bubble + ")";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, -32, 40, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     ctx.restore();
   }
 
@@ -2165,6 +3189,30 @@
 
     for (var i = 0; i < START_LIVES; i++) {
       drawLifeIcon(36 + i * 27, 92, i < game.lives);
+    }
+
+    drawGearIcon(40, 126);
+    ctx.textAlign = "left";
+    ctx.font = "700 18px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "#ffd166";
+    ctx.fillText(String(game.scrap), 56, 119);
+
+    if (game.shield > 0) {
+      var sb = 0.5 + 0.5 * Math.abs(Math.sin(game.time * 3.4));
+      ctx.strokeStyle = "rgba(127, 230, 255, " + sb + ")";
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(40, 139);
+      ctx.lineTo(47, 143);
+      ctx.lineTo(47, 149);
+      ctx.lineTo(40, 154);
+      ctx.lineTo(33, 149);
+      ctx.lineTo(33, 143);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.font = "700 12px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = "#7fe6ff";
+      ctx.fillText("SCHILD", 56, 141);
     }
 
     ctx.textAlign = "right";
@@ -2268,6 +3316,24 @@
     ctx.restore();
   }
 
+  function drawGearIcon(x, y) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = "#9fb0c4";
+    for (var i = 0; i < 8; i++) {
+      ctx.rotate(Math.PI / 4);
+      ctx.fillRect(-2, -9, 4, 4.5);
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#1b2430";
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   function drawLifeIcon(x, y, active) {
     ctx.save();
     ctx.globalAlpha = active ? 1 : 0.22;
@@ -2311,13 +3377,15 @@
     var w = 148;
     var h = 13;
     var x = rightX - w;
-    var ratio = clamp(game.fuel / FUEL_MAX, 0, 1);
+    var ratio = clamp(game.fuel / game.fuelMax, 0, 1);
     var low = ratio < FUEL_LOW / FUEL_MAX;
 
     ctx.textAlign = "right";
     ctx.font = "700 12px Consolas, 'Courier New', monospace";
     ctx.fillStyle = low ? "#ff8a6a" : "rgba(255,255,255,0.45)";
-    ctx.fillText("BENZIN " + Math.round(game.fuel) + "%", rightX, y - 15);
+    ctx.fillText(game.fuelMax > FUEL_MAX
+      ? "BENZIN " + Math.round(game.fuel) + "% · TANK " + game.fuelMax
+      : "BENZIN " + Math.round(game.fuel) + "%", rightX, y - 15);
 
     ctx.fillStyle = "rgba(255,255,255,0.13)";
     rr(ctx, x, y, w, h, 6);
@@ -2364,26 +3432,107 @@
         "Benzin kommt nur aus Kanistern - viele hängen hoch",
         "Hohe Türme schaffst du nur mit Doppelsprung",
         "Lavagräben spucken Tropfen - im richtigen Moment springen",
+        "Gegner greifen an - mit ENTER schießt du zurück",
         "Leben bleiben über die Level, selten gibt es Ersatz",
+        "Schrott sammeln und im Shop zwischen den Leveln ausgeben",
         "Ton: M = an/aus, -/+ = Lautstärke"
       ], "LEERTASTE ODER KLICK ZUM STARTEN");
-    } else if (game.state === "levelclear") {
-      panel("LEVEL " + game.level + " GESCHAFFT", [
-        "Benzin-Bonus: +" + game.levelBonus + " Punkte",
-        "Weiter mit Level " + (game.level + 1) + " - Tank wird voll gefüllt"
-      ], "LEERTASTE ODER KLICK = SOFORT WEITER");
+    } else if (game.state === "shop") {
+      drawShop();
     } else if (game.state === "over") {
       var title = game.bestThisRun ? "NEUER REKORD!" : "GAME OVER";
       var reason = game.deathCause === "pit" ? "In einen Graben gefallen"
         : game.deathCause === "lava" ? "Von einem Lavatropfen getroffen"
+        : game.deathCause === "enemy" ? "Von einem Gegner erwischt"
         : game.deathCause === "fuel" ? "Tank leer gelaufen"
         : "An einem Hindernis zerschellt";
       panel(title, [
         reason + " - Level " + game.level,
         "Punkte: " + Math.floor(game.score) + "   ·   Rekord: " + game.highscore,
-        "Leben: " + game.lives + "   ·   Benzin: " + Math.round(game.fuel) + "%"
+        "Leben: " + game.lives + "   ·   Schrott: " + game.scrap + "   ·   Benzin: " + Math.round(game.fuel) + "%"
       ], "LEERTASTE / KLICK = NOCHMAL (R)");
     }
+  }
+
+  function drawShop() {
+    var rows = SHOP_ITEMS.length;
+    var w = 660;
+    var h = 100 + rows * 44 + 60;
+    var x = VIEW_W / 2 - w / 2;
+    var y = VIEW_H / 2 - h / 2 - 8;
+
+    ctx.fillStyle = "rgba(8, 12, 22, 0.9)";
+    rr(ctx, x, y, w, h, 20);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(70, 224, 192, 0.55)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#eef4fb";
+    ctx.font = "800 32px Consolas, 'Courier New', monospace";
+    ctx.fillText("LEVEL " + game.level + " GESCHAFFT", VIEW_W / 2, y + 36);
+
+    ctx.font = "600 16px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.65)";
+    ctx.fillText("Benzin-Bonus: +" + game.levelBonus + "   ·   Schrott: " + game.scrap
+      + "   ·   Level " + (game.level + 1) + " wartet", VIEW_W / 2, y + 66);
+
+    game.shopRows = [];
+    for (var i = 0; i < rows; i++) {
+      var item = SHOP_ITEMS[i];
+      var st = shopItemState(item);
+      var rx = x + 26;
+      var ry = y + 94 + i * 44;
+      var rw = w - 52;
+      var rh = 38;
+      game.shopRows.push({ x: rx, y: ry, w: rw, h: rh, index: i });
+
+      ctx.fillStyle = st === "ok" ? "rgba(70, 224, 192, 0.16)" : "rgba(255,255,255,0.05)";
+      rr(ctx, rx, ry, rw, rh, 8);
+      ctx.fill();
+      ctx.strokeStyle = st === "ok" ? "rgba(70, 224, 192, 0.5)" : "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.textAlign = "left";
+      ctx.font = "700 17px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = st === "ok" ? "#eef4fb" : "rgba(255,255,255,0.4)";
+      ctx.fillText("[" + (i + 1) + "] " + item.label, rx + 14, ry + 15);
+
+      ctx.font = "500 13px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.fillText(item.hint, rx + 14, ry + 29);
+
+      ctx.textAlign = "right";
+      ctx.font = "700 17px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = st === "voll" ? "#46e0c0" : st === "teuer" ? "#ff8a6a" : "#ffd166";
+      ctx.fillText(st === "voll" ? "MAX" : item.cost + " Schrott", rx + rw - 14, ry + 19);
+    }
+
+    if (game.shopMessageTime > 0) {
+      ctx.textAlign = "center";
+      ctx.font = "700 15px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = "#ffd166";
+      ctx.fillText(game.shopMessage, VIEW_W / 2, y + 94 + rows * 44 + 4);
+    }
+
+    var pulse = 0.45 + 0.55 * Math.abs(Math.sin(game.time * 2.6));
+    ctx.textAlign = "center";
+    ctx.font = "700 16px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = game.shopLock > 0 ? "rgba(255,255,255,0.3)" : "rgba(70, 224, 192, " + pulse + ")";
+    ctx.fillText("1-4 = KAUFEN   ·   LEERTASTE / KLICK = WEITER", VIEW_W / 2, y + h - 26);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+  }
+
+  function pointerToView(e) {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    return {
+      x: (e.clientX * dpr - viewOffsetX) / viewScale,
+      y: (e.clientY * dpr - viewOffsetY) / viewScale
+    };
   }
 
   function panel(title, sub, hint) {
@@ -2435,8 +3584,10 @@
       startGame();
       return;
     }
-    if (game.state === "levelclear") {
-      startLevel(game.level + 1);
+    if (game.state === "shop") {
+      if (game.shopLock <= 0) {
+        startLevel(game.level + 1);
+      }
       return;
     }
     if (game.state === "paused") {
@@ -2494,6 +3645,27 @@
     if (code === "KeyR") {
       e.preventDefault();
       startGame();
+      return;
+    }
+    if (code === "Enter" || code === "NumpadEnter") {
+      e.preventDefault();
+      if (game.state === "shop" || game.state === "ready" || game.state === "over") {
+        onJumpDown();
+      } else {
+        fireShot();
+      }
+      return;
+    }
+    if (game.state === "shop" && game.shopLock <= 0) {
+      var n = -1;
+      if (code === "Digit1" || code === "Numpad1") { n = 0; }
+      else if (code === "Digit2" || code === "Numpad2") { n = 1; }
+      else if (code === "Digit3" || code === "Numpad3") { n = 2; }
+      else if (code === "Digit4" || code === "Numpad4") { n = 3; }
+      if (n >= 0) {
+        e.preventDefault();
+        buyShopItem(n);
+      }
     }
   });
 
@@ -2507,6 +3679,16 @@
   window.addEventListener("pointerdown", function (e) {
     e.preventDefault();
     audioInit();
+    if (game.state === "shop" && game.shopLock <= 0) {
+      var p = pointerToView(e);
+      for (var i = 0; i < game.shopRows.length; i++) {
+        var r = game.shopRows[i];
+        if (p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) {
+          buyShopItem(r.index);
+          return;
+        }
+      }
+    }
     onJumpDown();
   });
 
