@@ -2346,33 +2346,9 @@
     if (x > VIEW_W + w + 60 || x + w < -60) {
       return;
     }
-    var top = GROUND_Y - 250;
     var cx = x + w / 2;
-    var cy = GROUND_Y - 108;
+    var cy = GROUND_Y - 116;
     var pulse = 0.5 + 0.5 * Math.abs(Math.sin(game.time * 2.6));
-
-    for (var s = 0; s < 2; s++) {
-      var px = s === 0 ? x : x + w - 9;
-      var pg = ctx.createLinearGradient(px, 0, px + 9, 0);
-      pg.addColorStop(0, "#3d4a5e");
-      pg.addColorStop(0.45, "#93a3b8");
-      pg.addColorStop(1, "#242d3a");
-      ctx.fillStyle = pg;
-      rr(ctx, px, top, 9, GROUND_Y - top, 4);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(12,18,28,0.75)";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      ctx.fillStyle = "rgba(200, 250, 255, " + pulse + ")";
-      ctx.beginPath();
-      ctx.arc(px + 4.5, top - 6, 7, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "rgba(127, 230, 255, " + pulse * 0.4 + ")";
-      ctx.beginPath();
-      ctx.arc(px + 4.5, top - 6, 14, 0, Math.PI * 2);
-      ctx.fill();
-    }
 
     var pad = ctx.createRadialGradient(cx, GROUND_Y + 2, 4, cx, GROUND_Y + 2, 58);
     pad.addColorStop(0, "rgba(230, 255, 255, " + (0.35 + pulse * 0.3) + ")");
@@ -2380,15 +2356,15 @@
     ctx.fillStyle = pad;
     ctx.fillRect(cx - 58, GROUND_Y - 26, 116, 52);
 
-    var glow = ctx.createRadialGradient(cx, cy, 6, cx, cy, 74);
+    var glow = ctx.createRadialGradient(cx, cy, 6, cx, cy, 96);
     glow.addColorStop(0, "rgba(240, 255, 255, 0.95)");
     glow.addColorStop(0.3, "rgba(70, 224, 192, 0.5)");
     glow.addColorStop(1, "rgba(70, 224, 192, 0)");
     ctx.fillStyle = glow;
-    ctx.fillRect(cx - 74, cy - 74, 148, 148);
+    ctx.fillRect(cx - 96, cy - 96, 192, 192);
 
     for (var r = 0; r < 4; r++) {
-      var rad = 20 + r * 13 + Math.sin(game.time * 2 + r) * 2;
+      var rad = 26 + r * 16 + Math.sin(game.time * 2 + r) * 2.5;
       var dir = r % 2 === 0 ? 1 : -1;
       ctx.save();
       ctx.translate(cx, cy);
@@ -2404,15 +2380,15 @@
 
     ctx.fillStyle = "#eaffff";
     ctx.beginPath();
-    ctx.arc(cx, cy, 11 + Math.sin(game.time * 5) * 2.5, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 13 + Math.sin(game.time * 5) * 3, 0, Math.PI * 2);
     ctx.fill();
 
-    for (var i = 0; i < 9; i++) {
-      var a = game.time * 2.4 + i * (Math.PI * 2 / 9);
-      var sr = 34 + Math.sin(game.time * 3 + i * 1.7) * 7;
+    for (var i = 0; i < 11; i++) {
+      var a = game.time * 2.4 + i * (Math.PI * 2 / 11);
+      var sr = 42 + Math.sin(game.time * 3 + i * 1.7) * 8;
       ctx.fillStyle = "rgba(210, 250, 255, 0.8)";
       ctx.beginPath();
-      ctx.arc(cx + Math.cos(a) * sr, cy + Math.sin(a) * sr * 0.4, 2.4, 0, Math.PI * 2);
+      ctx.arc(cx + Math.cos(a) * sr, cy + Math.sin(a) * sr * 0.42, 2.6, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -2420,10 +2396,10 @@
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "rgba(10,16,26,0.85)";
-    rr(ctx, cx - 38, top - 34, 76, 22, 6);
+    rr(ctx, cx - 38, cy - 118, 76, 22, 6);
     ctx.fill();
     ctx.fillStyle = "#7fe6ff";
-    ctx.fillText("PORTAL", cx, top - 23);
+    ctx.fillText("PORTAL", cx, cy - 107);
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
   }

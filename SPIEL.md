@@ -61,8 +61,10 @@ Zusätzlich: Input-Buffer 0,13 s und Coyote-Time 0,1 s am Grabenrand.
 ## 4. Spielablauf
 
 Endlos-Runner: der Roboter steht bei `x = 168` fest, die Welt scrollt von rechts nach links.
-Ein Level endet an einem **Portal** (früher ein Ziel-Gate); beim Durchgang wird der Roboter
-ausgeblendet, es gibt Blitz, Schockwellen und einen eigenen Sound, dann öffnet sich der Shop.
+Ein Level endet an einem **Portal** (früher ein Ziel-Gate). Es ist ein freistehender Wirbel ohne
+Rahmen oder Stangen: vier unterschiedlich schnell und gegenläufig rotierende Ringe, heller Kern,
+umlaufende Funken, Bodenlichtung und die Beschriftung „PORTAL" darüber. Beim Durchgang wird der
+Roboter ausgeblendet, es gibt Blitz, Schockwellen und einen eigenen Sound, dann öffnet sich der Shop.
 
 ### Level-Parameter
 
@@ -457,6 +459,8 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     Titel (siehe Abschnitt 13)
 17. Externe Sicherung: privates GitHub-Repo `holgerdahinten80/roborunner` als `origin` eingerichtet,
     komplette Historie gepusht; Push-Anleitung steht in Abschnitt 11
+18. Zwei Stangen/Pylonen am Portal entfernt, damit der Roboter frei durch den Wirbel fährt; Wirbel
+    dafür größer (Ringe 26–74 px Radius, Glow 96 px) und Beschriftung direkt über dem Portal
 
 ---
 
