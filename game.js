@@ -41,6 +41,10 @@
   var SOUND_KEY = "roborunner.sound";
   var VOLUME_KEY = "roborunner.volume";
   var MUSIC_KEY = "roborunner.music";
+  var KEYS_KEY = "roborunner.keys";
+  var BTN_KEY = "roborunner.button";
+  var BTN_MIN = 0.8;
+  var BTN_MAX = 1.4;
   var VOLUME_STEP = 0.1;
   var WARN_FUEL = 12;
 
@@ -312,6 +316,7 @@
     fireHeld: false,
     uiButtons: [],
     settingsRow: 0,
+    controlsRow: 0,
     fuelMax: FUEL_MAX,
     shield: 0,
     maxJumps: 2,
@@ -416,6 +421,150 @@
     } catch (e) {
       /* storage nicht verfuegbar */
     }
+  }
+
+  function readKeyBindings() {
+    var fallback = { jump: "Space", shoot: "Enter" };
+    try {
+      var raw = window.localStorage.getItem(KEYS_KEY);
+      if (!raw) {
+        return fallback;
+      }
+      var parts = String(raw).split(";");
+      if (parts.length !== 2 || !parts[0] || !parts[1]) {
+        return fallback;
+      }
+      return { jump: parts[0], shoot: parts[1] };
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function writeKeyBindings() {
+    try {
+      window.localStorage.setItem(KEYS_KEY, keyBindings.jump + ";" + keyBindings.shoot);
+    } catch (e) {
+      /* storage nicht verfuegbar */
+    }
+  }
+
+  function readBtnScale() {
+    try {
+      var raw = parseFloat(window.localStorage.getItem(BTN_KEY));
+      return isFinite(raw) && raw >= BTN_MIN && raw <= BTN_MAX ? raw : 1;
+    } catch (e) {
+      return 1;
+    }
+  }
+
+  function writeBtnScale(value) {
+    try {
+      window.localStorage.setItem(BTN_KEY, String(value));
+    } catch (e) {
+      /* storage nicht verfuegbar */
+    }
+  }
+
+  var keyBindings = readKeyBindings();
+  var btnScale = readBtnScale();
+  var listeningAction = null;
+
+  function settingsRows() {
+    var rows = ["volume", "music"];
+    if (touchMode) {
+      rows.push("buttons");
+    }
+    rows.push("controls");
+    rows.push("back");
+    return rows;
+  }
+
+  function openControls() {
+    game.controlsRow = 0;
+    game.state = "controls";
+  }
+
+  function isReservedKey(code) {
+    return code === "Escape" || code === "KeyM" || code === "KeyP" || code === "KeyR"
+      || code === "Minus" || code === "Equal" || code === "NumpadAdd" || code === "NumpadSubtract";
+  }
+
+  function isJumpKey(code) {
+    return code === keyBindings.jump;
+  }
+
+  function isShootKey(code) {
+    return code === keyBindings.shoot;
+  }
+
+  function isConfirmKey(code) {
+    return code === "Space" || code === "Enter" || code === "NumpadEnter"
+      || isJumpKey(code) || isShootKey(code);
+  }
+
+  function keyLabel(code) {
+    var names = {
+      Space: "LEERTASTE", Enter: "ENTER", NumpadEnter: "ENTER (NUM)", Escape: "ESC",
+      ArrowUp: "PFEIL HOCH", ArrowDown: "PFEIL RUNTER", ArrowLeft: "PFEIL LINKS",
+      ArrowRight: "PFEIL RECHTS", ShiftLeft: "SHIFT", ShiftRight: "SHIFT RECHTS",
+      ControlLeft: "STRG", ControlRight: "STRG RECHTS", AltLeft: "ALT", AltRight: "ALT GR",
+      Tab: "TAB", Backspace: "RUECK", CapsLock: "FESTSTELL", Backquote: "AKZENT",
+      Minus: "MINUS", Equal: "PLUS", BracketLeft: "KLAMMER AUF", BracketRight: "KLAMMER ZU",
+      Backslash: "SCHRAEG", Semicolon: "SEMIKOLON", Quote: "ANFUEHRUNG", Comma: "KOMMA",
+      Period: "PUNKT", Slash: "SCHRAEGSTRICH", ContextMenu: "MENUE", Insert: "EINFG",
+      Delete: "ENTF", Home: "POS1", End: "ENDE", PageUp: "BILD AUF", PageDown: "BILD AB"
+    };
+    if (names[code]) {
+      return names[code];
+    }
+    if (code.indexOf("Key") === 0) {
+      return code.substring(3);
+    }
+    if (code.indexOf("Digit") === 0) {
+      return code.substring(5);
+    }
+    if (code.indexOf("Numpad") === 0) {
+      return "NUM " + code.substring(6);
+    }
+    if (code.indexOf("F") === 0 && code.length <= 3) {
+      return code;
+    }
+    return code.toUpperCase();
+  }
+
+  function btnScaleStep(dir) {
+    btnScale = clamp(Math.round((btnScale + dir * 0.1) * 10) / 10, BTN_MIN, BTN_MAX);
+    writeBtnScale(btnScale);
+    game.notice = "KNOEPFE " + Math.round(btnScale * 100) + "%";
+    game.noticeTime = 1.2;
+    tone({ freq: 720, duration: 0.06, type: "triangle", gain: 0.1 });
+  }
+
+  function resetKeyBindings() {
+    keyBindings.jump = "Space";
+    keyBindings.shoot = "Enter";
+    writeKeyBindings();
+    game.notice = "STEUERUNG ZURUECKGESETZT";
+    game.noticeTime = 1.4;
+    tone({ freq: 660, duration: 0.08, type: "triangle", gain: 0.12 });
+  }
+
+  function applyKeyBinding(action, code) {
+    if (isReservedKey(code)) {
+      game.notice = keyLabel(code) + " IST BELEGT";
+      game.noticeTime = 1.4;
+      sfxDenied();
+      return;
+    }
+    var other = action === "jump" ? "shoot" : "jump";
+    if (code === keyBindings[other]) {
+      keyBindings[other] = keyBindings[action];
+    }
+    keyBindings[action] = code;
+    writeKeyBindings();
+    game.notice = (action === "jump" ? "SPRINGEN: " : "SCHIESSEN: ") + keyLabel(code);
+    game.noticeTime = 1.6;
+    sfxBuy();
   }
 
   function audioInit() {
@@ -1947,7 +2096,7 @@
     var worldSpeed = 0;
     if (game.state === "playing") {
       worldSpeed = game.speed;
-    } else if (game.state === "menu" || game.state === "settings") {
+    } else if (game.state === "menu" || game.state === "settings" || game.state === "controls") {
       worldSpeed = 150;
     }
 
@@ -4135,25 +4284,28 @@
     ctx.textAlign = "left";
 
     if (touchMode && game.state === "playing" && !game.dead) {
+      var pr = 26 * btnScale;
       game.uiButtons.push({
-        x: PAUSE_BTN.x - 26,
-        y: PAUSE_BTN.y - 26,
-        w: 52,
-        h: 52,
+        x: PAUSE_BTN.x - pr,
+        y: PAUSE_BTN.y - pr,
+        w: pr * 2,
+        h: pr * 2,
         id: "pause"
       });
       ctx.save();
       ctx.globalAlpha = 0.7;
+      ctx.translate(PAUSE_BTN.x, PAUSE_BTN.y);
+      ctx.scale(btnScale, btnScale);
       ctx.fillStyle = "rgba(10, 16, 26, 0.55)";
       ctx.beginPath();
-      ctx.arc(PAUSE_BTN.x, PAUSE_BTN.y, 22, 0, Math.PI * 2);
+      ctx.arc(0, 0, 22, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "rgba(200, 220, 240, 0.5)";
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.fillStyle = "#cfe0f0";
-      ctx.fillRect(PAUSE_BTN.x - 7, PAUSE_BTN.y - 9, 5, 18);
-      ctx.fillRect(PAUSE_BTN.x + 2, PAUSE_BTN.y - 9, 5, 18);
+      ctx.fillRect(-7, -9, 5, 18);
+      ctx.fillRect(2, -9, 5, 18);
       ctx.restore();
     }
 
@@ -4161,29 +4313,31 @@
       var readyToFire = game.shotCooldown <= 0 && game.state === "playing" && !game.dead;
       ctx.save();
       ctx.globalAlpha = readyToFire ? 0.9 : 0.4;
+      ctx.translate(FIRE_BTN.x, FIRE_BTN.y);
+      ctx.scale(btnScale, btnScale);
       ctx.fillStyle = "rgba(10, 16, 26, 0.55)";
       ctx.beginPath();
-      ctx.arc(FIRE_BTN.x, FIRE_BTN.y, FIRE_BTN.r, 0, Math.PI * 2);
+      ctx.arc(0, 0, FIRE_BTN.r, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#7fe6ff";
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(FIRE_BTN.x, FIRE_BTN.y, FIRE_BTN.r, 0, Math.PI * 2);
+      ctx.arc(0, 0, FIRE_BTN.r, 0, Math.PI * 2);
       ctx.stroke();
       ctx.fillStyle = "#eaffff";
       ctx.beginPath();
-      ctx.moveTo(FIRE_BTN.x + 4, FIRE_BTN.y - 18);
-      ctx.lineTo(FIRE_BTN.x - 9, FIRE_BTN.y + 2);
-      ctx.lineTo(FIRE_BTN.x - 1, FIRE_BTN.y + 2);
-      ctx.lineTo(FIRE_BTN.x - 5, FIRE_BTN.y + 18);
-      ctx.lineTo(FIRE_BTN.x + 10, FIRE_BTN.y - 3);
-      ctx.lineTo(FIRE_BTN.x + 2, FIRE_BTN.y - 3);
+      ctx.moveTo(4, -18);
+      ctx.lineTo(-9, 2);
+      ctx.lineTo(-1, 2);
+      ctx.lineTo(-5, 18);
+      ctx.lineTo(10, -3);
+      ctx.lineTo(2, -3);
       ctx.closePath();
       ctx.fill();
       ctx.font = "700 12px Consolas, 'Courier New', monospace";
       ctx.textAlign = "center";
       ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.fillText("FEUER", FIRE_BTN.x, FIRE_BTN.y + FIRE_BTN.r + 13);
+      ctx.fillText("FEUER", 0, FIRE_BTN.r + 13);
       ctx.textAlign = "left";
       ctx.restore();
     }
@@ -4352,6 +4506,8 @@
       drawMainMenu();
     } else if (game.state === "settings") {
       drawSettings();
+    } else if (game.state === "controls") {
+      drawControls();
     } else if (game.state === "shop") {
       drawShop();
     } else if (game.state === "over") {
@@ -4558,6 +4714,16 @@
       audioVolumeStep(id === "volume+" ? 1 : -1);
     } else if (id === "music-" || id === "music+") {
       musicVolumeStep(id === "music+" ? 1 : -1);
+    } else if (id === "buttons-" || id === "buttons+") {
+      btnScaleStep(id === "buttons+" ? 1 : -1);
+    } else if (id === "open-controls") {
+      openControls();
+    } else if (id === "controls-jump" || id === "controls-shoot") {
+      listeningAction = id === "controls-jump" ? "jump" : "shoot";
+    } else if (id === "controls-reset") {
+      resetKeyBindings();
+    } else if (id === "controls-back") {
+      game.state = "settings";
     }
   }
 
@@ -4583,8 +4749,8 @@
     ctx.font = "500 14px Consolas, 'Courier New', monospace";
     ctx.fillStyle = "rgba(255,255,255,0.45)";
     var lines = [
-      "Springen: Leertaste/Klick - in der Luft nochmal für Doppelsprung",
-      "Schießen: Enter - Pause: P/Esc - Ton: M, Lautstärke: - / +",
+      "Springen: " + keyLabel(keyBindings.jump) + " - in der Luft nochmal für Doppelsprung",
+      "Schießen: " + keyLabel(keyBindings.shoot) + " - Pause: P/Esc - Ton: M",
       "Benzin und Schrott sammeln, am Levelende durchs Portal"
     ];
     if (touchMode) {
@@ -4600,10 +4766,11 @@
 
   function drawSettings() {
     var cx = VIEW_W / 2;
-    var w = 560;
-    var h = 306;
+    var rows = settingsRows();
+    var w = 620;
+    var h = 96 + rows.length * 58 + 66;
     var x = cx - w / 2;
-    var y = 92;
+    var y = Math.max(54, VIEW_H / 2 - h / 2 - 8);
 
     ctx.fillStyle = "rgba(8, 12, 22, 0.9)";
     rr(ctx, x, y, w, h, 20);
@@ -4618,40 +4785,137 @@
     ctx.fillStyle = "#eef4fb";
     ctx.fillText("EINSTELLUNGEN", cx, y + 44);
 
-    var rows = [
-      { id: "volume", label: "Lautstärke", value: Math.round(audio.volume * 100) + "%", warn: !audio.enabled },
-      { id: "music", label: "Musik", value: Math.round(music.volume * 100) + "%", warn: music.volume <= 0 }
-    ];
-
     for (var i = 0; i < rows.length; i++) {
-      var ry = y + 88 + i * 62;
+      var ry = y + 82 + i * 58;
       var hot = game.settingsRow === i;
+      var row = rows[i];
       if (hot) {
         ctx.strokeStyle = "rgba(70, 224, 192, 0.45)";
         ctx.lineWidth = 2;
-        rr(ctx, x + 14, ry - 8, w - 28, 60, 12);
+        rr(ctx, x + 14, ry - 6, w - 28, 56, 12);
+        ctx.stroke();
+      }
+
+      var label = row === "volume" ? "Lautstärke"
+        : row === "music" ? "Musik"
+        : row === "buttons" ? "Knopfgröße"
+        : row === "controls" ? "Steuerung"
+        : "Zurück";
+
+      ctx.textAlign = "left";
+      ctx.font = "700 20px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = hot ? "#eaffff" : "#cfd9e6";
+      ctx.fillText(label, x + 32, ry + 22);
+
+      if (row === "volume" || row === "music" || row === "buttons") {
+        var value = row === "volume" ? Math.round(audio.volume * 100) + "%"
+          : row === "music" ? Math.round(music.volume * 100) + "%"
+          : Math.round(btnScale * 100) + "%";
+        var warn = row === "volume" ? !audio.enabled
+          : row === "music" ? music.volume <= 0
+          : btnScale !== 1;
+
+        uiButton(x + w - 214, ry + 1, 44, 44, row + "-", "-");
+        ctx.textAlign = "center";
+        ctx.font = "700 18px Consolas, 'Courier New', monospace";
+        ctx.fillStyle = warn ? "#ffa06a" : "#ffd166";
+        ctx.fillText(value, x + w - 154, ry + 23);
+        uiButton(x + w - 94, ry + 1, 44, 44, row + "+", "+");
+      } else {
+        var hint = row === "controls"
+          ? keyLabel(keyBindings.jump) + " / " + keyLabel(keyBindings.shoot)
+          : "Esc";
+        ctx.textAlign = "right";
+        ctx.font = "700 15px Consolas, 'Courier New', monospace";
+        ctx.fillStyle = row === "controls" ? "#46e0c0" : "rgba(255,255,255,0.45)";
+        ctx.fillText(hint, x + w - 32, ry + 22);
+        game.uiButtons.push({
+          x: x + 12,
+          y: ry - 6,
+          w: w - 24,
+          h: 56,
+          id: row === "controls" ? "open-controls" : "back"
+        });
+      }
+    }
+
+    ctx.textAlign = "center";
+    ctx.font = "500 13px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillText("Pfeiltasten: auswählen   ·   Enter: öffnen/umschalten", cx, y + h - 52);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+  }
+
+  function drawControls() {
+    var cx = VIEW_W / 2;
+    var w = 620;
+    var h = 300;
+    var x = cx - w / 2;
+    var y = 104;
+
+    ctx.fillStyle = "rgba(8, 12, 22, 0.92)";
+    rr(ctx, x, y, w, h, 20);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(70, 224, 192, 0.55)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "800 28px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "#eef4fb";
+    ctx.fillText("STEUERUNG", cx, y + 42);
+
+    var rows = [
+      { id: "jump", label: "Springen", value: keyLabel(keyBindings.jump) },
+      { id: "shoot", label: "Schießen", value: keyLabel(keyBindings.shoot) },
+      { id: "reset", label: "Standard", value: "LEERTASTE / ENTER" },
+      { id: "back", label: "Zurück", value: "" }
+    ];
+
+    for (var i = 0; i < rows.length; i++) {
+      var ry = y + 76 + i * 52;
+      var hot = game.controlsRow === i;
+      var listening = listeningAction === rows[i].id;
+
+      ctx.fillStyle = hot ? "rgba(70, 224, 192, 0.14)" : "rgba(255,255,255,0.04)";
+      rr(ctx, x + 16, ry - 4, w - 32, 48, 10);
+      ctx.fill();
+      if (hot) {
+        ctx.strokeStyle = "rgba(70, 224, 192, 0.5)";
+        ctx.lineWidth = 2;
         ctx.stroke();
       }
 
       ctx.textAlign = "left";
       ctx.font = "700 20px Consolas, 'Courier New', monospace";
       ctx.fillStyle = hot ? "#eaffff" : "#cfd9e6";
-      ctx.fillText(rows[i].label, x + 32, ry + 22);
+      ctx.fillText(rows[i].label, x + 34, ry + 20);
 
-      uiButton(x + w - 208, ry, 44, 44, rows[i].id + "-", "-");
-      ctx.textAlign = "center";
-      ctx.font = "700 18px Consolas, 'Courier New', monospace";
-      ctx.fillStyle = rows[i].warn ? "#ff8a6a" : "#ffd166";
-      ctx.fillText(rows[i].value, x + w - 148, ry + 22);
-      uiButton(x + w - 88, ry, 44, 44, rows[i].id + "+", "+");
+      if (rows[i].value) {
+        var pulse = 0.55 + 0.45 * Math.abs(Math.sin(game.time * 5));
+        ctx.textAlign = "right";
+        ctx.font = "700 18px Consolas, 'Courier New', monospace";
+        ctx.fillStyle = listening ? "rgba(255, 209, 102, " + pulse + ")" : "#46e0c0";
+        ctx.fillText(listening ? "TASTE DRÜCKEN ..." : rows[i].value, x + w - 34, ry + 20);
+      }
+
+      game.uiButtons.push({
+        x: x + 16,
+        y: ry - 4,
+        w: w - 32,
+        h: 48,
+        id: "controls-" + rows[i].id
+      });
     }
 
     ctx.textAlign = "center";
     ctx.font = "500 13px Consolas, 'Courier New', monospace";
     ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.fillText("Pfeiltasten: auswählen und ändern", cx, y + h - 78);
-
-    uiButton(cx - 110, y + h - 62, 220, 46, "back", "ZURÜCK", "Esc");
+    ctx.fillText(listeningAction
+      ? "Neue Taste drücken · Esc bricht ab"
+      : "Pfeiltasten: auswählen   ·   Enter: Taste belegen   ·   Esc: zurück", cx, y + h - 26);
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
   }
@@ -4686,8 +4950,22 @@
     }
     audioInit();
     var code = e.code;
-    var isFire = code === "Enter" || code === "NumpadEnter";
-    var isJump = code === "Space" || code === "ArrowUp" || code === "KeyW";
+
+    if (listeningAction) {
+      e.preventDefault();
+      if (code === "Escape") {
+        listeningAction = null;
+        game.notice = "ABGEBROCHEN";
+        game.noticeTime = 1.2;
+      } else {
+        applyKeyBinding(listeningAction, code);
+        listeningAction = null;
+      }
+      return;
+    }
+
+    var isFire = isConfirmKey(code);
+    var isJump = isJumpKey(code);
     var isUp = code === "ArrowUp" || code === "KeyW";
     var isDown = code === "ArrowDown" || code === "KeyS";
     var isLeft = code === "ArrowLeft" || code === "KeyA";
@@ -4724,18 +5002,58 @@
 
     if (game.state === "settings") {
       e.preventDefault();
+      var rows = settingsRows();
       if (isUp) {
-        game.settingsRow = (game.settingsRow + 2) % 3;
+        game.settingsRow = (game.settingsRow + rows.length - 1) % rows.length;
       } else if (isDown) {
-        game.settingsRow = (game.settingsRow + 1) % 3;
-      } else if (isLeft) {
-        if (game.settingsRow === 0) { audioVolumeStep(-1); }
-        else if (game.settingsRow === 1) { musicVolumeStep(-1); }
-      } else if (isRight) {
-        if (game.settingsRow === 0) { audioVolumeStep(1); }
-        else if (game.settingsRow === 1) { musicVolumeStep(1); }
+        game.settingsRow = (game.settingsRow + 1) % rows.length;
       } else {
-        goToMenu();
+        var row = rows[game.settingsRow] || "back";
+        if (isLeft || isRight) {
+          var dir = isRight ? 1 : -1;
+          if (row === "volume") { audioVolumeStep(dir); }
+          else if (row === "music") { musicVolumeStep(dir); }
+          else if (row === "buttons") { btnScaleStep(dir); }
+          else if (row === "controls") { openControls(); }
+          else { goToMenu(); }
+        } else if (row === "volume") {
+          audioToggle();
+        } else if (row === "music") {
+          music.volume = music.volume > 0 ? 0 : 0.5;
+          writeMusicVolume(music.volume);
+          musicApplyVolume();
+          game.notice = "MUSIK " + Math.round(music.volume * 100) + "%";
+          game.noticeTime = 1.2;
+        } else if (row === "buttons") {
+          btnScaleStep(1);
+        } else if (row === "controls") {
+          openControls();
+        } else {
+          goToMenu();
+        }
+      }
+      return;
+    }
+
+    if (game.state === "controls") {
+      e.preventDefault();
+      if (code === "Escape") {
+        game.state = "settings";
+        return;
+      }
+      var crow = ["jump", "shoot", "reset", "back"][game.controlsRow] || "back";
+      if (isUp) {
+        game.controlsRow = (game.controlsRow + 3) % 4;
+      } else if (isDown) {
+        game.controlsRow = (game.controlsRow + 1) % 4;
+      } else if (code === "Enter" || code === "NumpadEnter" || code === "Space" || isRight) {
+        if (crow === "jump" || crow === "shoot") {
+          listeningAction = crow;
+        } else if (crow === "reset") {
+          resetKeyBindings();
+        } else {
+          game.state = "settings";
+        }
       }
       return;
     }
@@ -4772,21 +5090,21 @@
     }
 
     if (game.state === "shop") {
+      var n = -1;
+      if (code === "Digit1" || code === "Numpad1") { n = 0; }
+      else if (code === "Digit2" || code === "Numpad2") { n = 1; }
+      else if (code === "Digit3" || code === "Numpad3") { n = 2; }
+      else if (code === "Digit4" || code === "Numpad4") { n = 3; }
+      if (n >= 0) {
+        e.preventDefault();
+        if (game.shopLock <= 0) {
+          buyShopItem(n);
+        }
+        return;
+      }
       if (isJump || isFire) {
         e.preventDefault();
         onJumpDown();
-        return;
-      }
-      if (game.shopLock <= 0) {
-        var n = -1;
-        if (code === "Digit1" || code === "Numpad1") { n = 0; }
-        else if (code === "Digit2" || code === "Numpad2") { n = 1; }
-        else if (code === "Digit3" || code === "Numpad3") { n = 2; }
-        else if (code === "Digit4" || code === "Numpad4") { n = 3; }
-        if (n >= 0) {
-          e.preventDefault();
-          buyShopItem(n);
-        }
       }
       return;
     }
@@ -4797,7 +5115,7 @@
         onJumpDown();
         return;
       }
-      if (isFire) {
+      if (isShootKey(code)) {
         e.preventDefault();
         fireShot();
         return;
@@ -4813,7 +5131,7 @@
 
   window.addEventListener("keyup", function (e) {
     var code = e.code;
-    if (code === "Space" || code === "ArrowUp" || code === "KeyW") {
+    if (isJumpKey(code) || code === "Space" || code === "ArrowUp" || code === "KeyW") {
       releaseJump();
     }
   });
@@ -4826,9 +5144,10 @@
     var p = pointerToView(e);
 
     if (touchMode && game.state === "playing" && !game.dead) {
+      var fr = FIRE_BTN.r * btnScale;
       var ddx = p.x - FIRE_BTN.x;
       var ddy = p.y - FIRE_BTN.y;
-      if (ddx * ddx + ddy * ddy <= FIRE_BTN.r * FIRE_BTN.r) {
+      if (ddx * ddx + ddy * ddy <= fr * fr) {
         game.fireHeld = true;
         fireShot();
         return;

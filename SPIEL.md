@@ -51,9 +51,11 @@ Neue Gegner/Hindernisse brauchen also nur Code, keine Dateien.
 | `-` / `+` | Lautstärke in 10-%-Schritten (gespeichert) |
 | Klick neben die Shop-Zeilen | Weiter zum nächsten Level |
 | Hauptmenü | `Leertaste`/`Enter`/Klick **SPIELEN** = Lauf starten, `E`/Klick **EINSTELLUNGEN** |
-| Einstellungen | `↑`/`↓` wählt Zeile, `←`/`→` (oder `-`/`+`) ändert den Wert, `Esc`/`Enter` zurück; Klick auf `-`/`+` geht auch |
+| Einstellungen | `↑`/`↓` wählt Zeile, `←`/`→` (oder `-`/`+`) ändert den Wert, `Enter` schaltet/öffnet, `Esc` zurück; Klick auf `-`/`+` geht auch |
+| Steuerung (Untermenü) | `↑`/`↓` wählt, `Enter` belegt die Taste neu („Taste drücken …"), `Esc` bricht ab bzw. geht zurück; „Standard" setzt auf Leertaste/Enter |
 | Game Over | `Leertaste` = nochmal, `Esc` = Hauptmenü (Knöpfe anklickbar) |
 | **Handy:** Tippen irgendwo | Springen (Doppelsprung = zweimal tippen) |
+| Eigene Tasten | Sprung- und Schusstaste sind frei belegbar (Einstellungen → Steuerung), Standard bleibt Leertaste und Enter |
 | **Handy:** Feuer-Knopf unten rechts | Schießen, halten feuert dauerhaft |
 | **Handy:** Pause-Knopf unten links | Pause; im Pausenmenü WEITER oder HAUPTMENÜ antippen |
 
@@ -312,7 +314,8 @@ Persistenz + Audio + SFX → Helfer (`rr`, `clamp`, `rand`) → Level-/Lebens-Lo
 | Zustand | Bedeutung |
 |---|---|
 | `menu` | Hauptmenü mit **SPIELEN** und **EINSTELLUNGEN**, Welt scrollt langsam im Hintergrund |
-| `settings` | Einstellungen: Lautstärke und Musik in 10-%-Schritten, Zurück-Knopf |
+| `settings` | Einstellungen: Lautstärke, Musik, (nur Touch) Knopfgröße, Steuerung, Zurück |
+| `controls` | Untermenü Steuerung: Tasten für Springen und Schießen belegen, Standard, Zurück |
 | `playing` | normales Spiel; Unterzustand `game.dead = true` während der Explosionspause |
 | `paused` | Pause (Blur pausiert automatisch, Ton wird suspendiert) |
 | `shop` | Level geschafft, Shop wartet auf Eingabe (kein Auto-Weiter) |
@@ -370,6 +373,26 @@ Daraus folgen die Hindernishöhen: alles bis 100 px ist einfach, `tower` (132 px
 | `roborunner.sound` | `"on"` / `"off"` |
 | `roborunner.volume` | Gesamtlautstärke 0 … 1 (Default 0,6) |
 | `roborunner.music` | Musiklautstärke 0 … 1 (Default 0,5) |
+| `roborunner.keys` | Tastenbelegung als `jump;shoot`, z. B. `Space;Enter` |
+| `roborunner.button` | Knopfgröße für Touchgeräte 0,8 … 1,4 (Default 1) |
+
+### Steuerung anpassen (Einstellungen → Steuerung)
+
+Zwei Aktionen sind frei belegbar: **Springen** und **Schießen** (`keyBindings`, gespeichert unter
+`roborunner.keys`). Ablauf: Zeile wählen → `Enter` → die gewünschte Taste drücken; `Esc` bricht ab.
+Die aktuell belegte Taste erscheint als Klartext (`keyLabel()` übersetzt Keycodes, z. B. `KeyJ` → „J",
+`ArrowUp` → „PFEIL HOCH", `NumpadEnter` → „ENTER (NUM)"). `Standard` stellt Leertaste und Enter wieder
+her. Belegt man eine Taste, die schon für die andere Aktion gilt, **tauschen** beide; global
+reservierte Tasten (`Esc`, `M`, `P`, `R`, `-`, `+`) werden mit Hinweis abgelehnt. In den Menüs gelten
+Leertaste/Enter immer als Bestätigung, und im Shop haben die Ziffern Vorrang vor der Sprungtaste,
+damit man dort weiterhin kaufen kann.
+
+### Knopfgröße auf Touchgeräten
+
+Die Zeile **Knopfgröße** (nur sichtbar wenn `touchMode`) skaliert Feuer- und Pause-Knopf in
+10-%-Schritten von 80 % bis 140 % (`btnScale`, gespeichert unter `roborunner.button`). Gezeichnet wird
+über `translate` + `scale(btnScale, btnScale)`, damit Symbol, Ring und Beschriftung zusammen wachsen;
+die Trefferflächen (Feuer-Knopf-Radius, Pause-Rechteck) nutzen denselben Faktor.
 
 Schrott und Upgrades sind **bewusst nicht** dauerhaft (Meta-Progression wurde abgelehnt).
 
@@ -506,6 +529,12 @@ Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
   Level 5: min 848 / avg 1006 px), der Höhenrhythmus mid→ground→high durchläuft, der Bodenanteil
   bei ~32 % liegt und die Benzinbilanz bei ~58 % Sammelquote liegt; Level 1 mit sauberem Spiel in
   32 s schaffbar (90 % Restbenzin), Level 5 mit 47 %, Nur-Boden-Spieler verliert 2 Leben
+- Steuerung: mit Desktop- und Touch-Stub geprüft – Einstellungen zeigen auf dem Desktop 4 Zeilen,
+  auf Touch 5 (mit Knopfgröße); Steuerung öffnet sich, zeigt die aktuellen Tasten als Klartext,
+  nimmt eine neue Taste an (`Space;KeyK` gespeichert), lehnt reservierte Tasten (M) mit Hinweis ab,
+  `Esc` bricht ab, Doppelbelegung tauscht (Springen K, Schießen J), „Standard" setzt zurück, und
+  danach springt Leertaste bzw. schießt Enter wieder; Knopfgröße lässt sich auf 120 % stellen,
+  wird gespeichert und der Feuer-Knopf reagiert im größeren Radius
 - Tempo: für Level 1–5 Start- und Endgeschwindigkeit geprüft (Desktop 330/431 bis 490/706 px/s,
   Touch jeweils ×0,85 also 281/366 bis 417/600), Level 1 mit sauberem Spiel in 32,9 s (Touch
   38,8 s) beendet, Gräben auch beim neuen Tempo überspringbar (7 bzw. 6 von 23 Timings)
@@ -668,6 +697,10 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     gekürzt, damit die Dauer mit ~33 s weiterhin etwa das Dreifache des Ursprungs ist.
     Neu: `TOUCH_SPEED_FACTOR = 0.85` – auf Touchgeräten läuft alles 15 % langsamer
     (Level 1: 281 → 366 px/s). Benzinquote dadurch ~58 % statt 61 %
+30. Steuerung einstellbar: neue Tastenbelegung für Springen und Schießen (Einstellungen → Steuerung,
+    „Taste drücken …", Tausch bei Doppelbelegung, reservierte Tasten abgelehnt, Standard-Reset,
+    gespeichert als `roborunner.keys`) und eine Knopfgröße für Touchgeräte von 80 % bis 140 %
+    (`roborunner.button`), die Feuer- und Pause-Knopf samt Trefferflächen skaliert
 
 ---
 
