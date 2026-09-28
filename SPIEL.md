@@ -314,7 +314,7 @@ Persistenz + Audio + SFX → Helfer (`rr`, `clamp`, `rand`) → Level-/Lebens-Lo
 
 | Zustand | Bedeutung |
 |---|---|
-| `menu` | Hauptmenü: Titel, Profilzeile (Name + Statistik), **SPIELEN**, **EINSTELLUNGEN**, Regeln; Welt scrollt langsam im Hintergrund |
+| `menu` | Hauptmenü: Profilkarte oben rechts (Avatar, Name, Statistik), Titel, **SPIELEN**, **EINSTELLUNGEN**, Regeln; Welt scrollt langsam im Hintergrund |
 | `settings` | Einstellungen: Lautstärke, Musik, (nur Touch) Knopfgröße, Steuerung, Zurück |
 | `controls` | Untermenü Steuerung: Tasten für Springen und Schießen belegen, Standard, Zurück |
 | `playing` | normales Spiel; Unterzustand `game.dead = true` während der Explosionspause |
@@ -382,19 +382,21 @@ Daraus folgen die Hindernishöhen: alles bis 100 px ist einfach, `tower` (132 px
 
 ### Profil und Statistik
 
-Das Profil sitzt **direkt im Hauptmenü** – ein Kasten zwischen Titel und Knöpfen (`drawMainMenu()`):
+Das Profil sitzt als **Karte oben rechts** auf der Startseite (`drawProfileCard()`, aufgerufen aus
+`drawMainMenu()`), mit Roboter-Avatar (`drawAvatar()`), Name und Statistik:
 
 ```
-ROBO RUNNER
-┌────────────────────────────────────────┐
-│ SPIELER                    ohne Namen  │   <- Zeile anklicken oder N drücken
-│        N oder Klick auf die Zeile ...  │
-│   REKORD 000123 · LEVEL 3 · LÄUFE 12   │   <- Statistikzeile
-└────────────────────────────────────────┘
-   [ SPIELEN ]        [ EINSTELLUNGEN ]
+                    ┌──────────────────────────┐
+                    │   ╭───╮   SPIELER        │
+                    │   │ o │   ohne Namen_    │  <- Klick oder N = Namen ändern
+                    │   ╰───╯   REKORD 000123  │
+                    │           LEVEL 3 · LÄUFE 12 │
+                    └──────────────────────────┘
+              ROBO RUNNER
+        [ SPIELEN ]      [ EINSTELLUNGEN ]
 ```
 
-- **Name** eingeben über die Profilzeile (`N` oder Klick). Dafür hängt in `index.html` ein echtes,
+- **Name** eingeben über die Profilkarte (`N` oder Klick). Dafür hängt in `index.html` ein echtes,
   unsichtbares Eingabefeld
   (`#nameInput`, in `style.css` auf 2 px mit `opacity: 0` gesetzt). `startNameEdit()` fokussiert es –
   damit öffnet sich auf dem Handy die Bildschirmtastatur, auf dem Desktop tippt man direkt.
@@ -403,7 +405,7 @@ ROBO RUNNER
   Leerzeichen, `_`, `-`, Umlaute, höchstens 12 Zeichen, außen getrimmt) und speichert ihn.
   Solange das Feld fokussiert ist, schluckt der Tastatur-Handler alle Tasten außer `Enter`/`Esc` –
   so wird beim Tippen nicht gesprungen.
-- **Statistikzeile** unter dem Namen zeigt in einer Zeile:
+- **Statistik** in der Karte unter Avatar und Name:
   - **REKORD** – bester Punktestand aus `roborunner.highscore`
   - **LEVEL** – höchstes erreichtes Level (`saveBestLevel()` beim Levelabschluss und bei Game Over)
   - **LÄUFE** – hochgezählt bei `startGame(true)`, also bei Spielen/Nochmal/`R`; ein bloßer
@@ -754,6 +756,9 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 32. Profil in das Hauptmenü integriert statt eigener Bildschirm: Kasten mit Namenszeile (Taste `N`
     oder Klick) und einer Statistikzeile (Rekord · Level · Läufe), Knöpfe SPIELEN/EINSTELLUNGEN
     nebeneinander; Zustand `profile` und der dritte Knopf entfallen
+33. Profil als Karte **oben rechts** auf der Startseite (`drawProfileCard()` + `drawAvatar()`):
+    Roboter-Avatar im Kreis, Name groß, darunter REKORD und LEVEL · LÄUFE; Klick oder `N` ändert den
+    Namen, Hinweis steht klein unter der Karte. Titel und Knöpfe rücken dafür nach unten
 
 ---
 

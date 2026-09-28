@@ -4822,63 +4822,106 @@
     }
   }
 
+  function drawAvatar(cx, cy, r) {
+    var grad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+    grad.addColorStop(0, "rgba(70, 224, 192, 0.38)");
+    grad.addColorStop(1, "rgba(34, 58, 104, 0.6)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(70, 224, 192, 0.75)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.strokeStyle = "#5b6b80";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 6, cy - 8);
+    ctx.lineTo(cx - 9, cy - 16);
+    ctx.stroke();
+    ctx.fillStyle = "#ff5d5d";
+    ctx.beginPath();
+    ctx.arc(cx - 9, cy - 17, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#dbe6f2";
+    rr(ctx, cx - 12, cy - 8, 24, 17, 5);
+    ctx.fill();
+    ctx.strokeStyle = "#5b6b80";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = "#1b2430";
+    rr(ctx, cx - 8, cy - 4, 16, 8, 4);
+    ctx.fill();
+    ctx.fillStyle = "#46e0c0";
+    ctx.beginPath();
+    ctx.arc(cx + 3, cy, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawProfileCard() {
+    var w = 240;
+    var h = 118;
+    var x = VIEW_W - w - 20;
+    var y = 16;
+    var editing = isNameEditing();
+
+    ctx.fillStyle = "rgba(10, 16, 28, 0.8)";
+    rr(ctx, x, y, w, h, 14);
+    ctx.fill();
+    ctx.strokeStyle = editing ? "rgba(70, 224, 192, 0.95)" : "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    drawAvatar(x + 42, y + 44, 24);
+
+    ctx.textAlign = "left";
+    ctx.font = "600 11px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillText("SPIELER", x + 78, y + 26);
+
+    var shown = editing ? game.nameDraft : game.playerName;
+    var caret = editing && Math.floor(game.time * 3) % 2 === 0 ? "_" : " ";
+    ctx.font = "700 19px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = shown ? "#ffd166" : "rgba(255,255,255,0.32)";
+    ctx.fillText((shown || "ohne Namen") + caret, x + 78, y + 50);
+
+    ctx.font = "600 14px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "#46e0c0";
+    ctx.fillText("REKORD " + pad(game.highscore), x + 16, y + 84);
+
+    ctx.font = "500 12px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillText("LEVEL " + (game.bestLevel || 1) + "   ·   LÄUFE " + game.runs, x + 16, y + 104);
+
+    game.uiButtons.push({ x: x, y: y, w: w, h: h, id: "name-edit" });
+
+    ctx.textAlign = "right";
+    ctx.font = "500 11px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.42)";
+    ctx.fillText(editing ? "Enter = fertig" : "Klick oder N = Namen ändern", x + w, y + h + 18);
+    ctx.textAlign = "left";
+  }
+
   function drawMainMenu() {
     var cx = VIEW_W / 2;
-    var editing = isNameEditing();
 
     ctx.fillStyle = "rgba(8, 12, 22, 0.55)";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
+    drawProfileCard();
+
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = "800 54px Consolas, 'Courier New', monospace";
+    ctx.font = "800 56px Consolas, 'Courier New', monospace";
     ctx.fillStyle = "#eef4fb";
-    ctx.fillText("ROBO RUNNER", cx, 66);
-
-    var pw = 600;
-    var px = cx - pw / 2;
-    var py = 98;
-    var ph = 100;
-
-    ctx.fillStyle = "rgba(10, 16, 28, 0.75)";
-    rr(ctx, px, py, pw, ph, 14);
-    ctx.fill();
-    ctx.strokeStyle = editing ? "rgba(70, 224, 192, 0.9)" : "rgba(255,255,255,0.16)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.textAlign = "left";
-    ctx.font = "700 18px Consolas, 'Courier New', monospace";
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.fillText("SPIELER", px + 26, py + 30);
-
-    var shown = editing ? game.nameDraft : game.playerName;
-    ctx.textAlign = "right";
-    ctx.font = "700 22px Consolas, 'Courier New', monospace";
-    ctx.fillStyle = shown ? "#ffd166" : "rgba(255,255,255,0.35)";
-    if (editing) {
-      var caret = Math.floor(game.time * 3) % 2 === 0 ? "_" : " ";
-      ctx.fillText((shown || "") + caret, px + pw - 26, py + 30);
-    } else {
-      ctx.fillText(shown || "ohne Namen", px + pw - 26, py + 30);
-    }
-
-    ctx.textAlign = "center";
-    ctx.font = "500 12px Consolas, 'Courier New', monospace";
-    ctx.fillStyle = "rgba(255,255,255,0.42)";
-    ctx.fillText(editing ? "tippen und dann Enter" : "N oder Klick auf die Zeile = Namen ändern", cx, py + 60);
-
-    ctx.font = "600 15px Consolas, 'Courier New', monospace";
-    ctx.fillStyle = "#46e0c0";
-    ctx.fillText("REKORD " + pad(game.highscore)
-      + "   ·   LEVEL " + (game.bestLevel || 1)
-      + "   ·   LÄUFE " + game.runs, cx, py + 82);
-
-    game.uiButtons.push({ x: px + 12, y: py + 8, w: pw - 24, h: 52, id: "name-edit" });
+    ctx.fillText("ROBO RUNNER", cx, 132);
 
     var bw = 280;
-    uiButton(cx - bw - 10, 220, bw, 58, "play", "SPIELEN", "Leertaste / Klick");
-    uiButton(cx + 10, 220, bw, 58, "settings", "EINSTELLUNGEN", "Taste E");
+    uiButton(cx - bw - 10, 224, bw, 58, "play", "SPIELEN", "Leertaste / Klick");
+    uiButton(cx + 10, 224, bw, 58, "settings", "EINSTELLUNGEN", "Taste E");
 
     ctx.textAlign = "center";
     ctx.font = "500 14px Consolas, 'Courier New', monospace";
@@ -4893,7 +4936,7 @@
       lines.push("Vollbild: \"Zum Home-Bildschirm\" hinzufügen");
     }
     for (var i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i], cx, 312 + i * 24);
+      ctx.fillText(lines[i], cx, 328 + i * 24);
     }
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
