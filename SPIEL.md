@@ -50,8 +50,8 @@ Neue Gegner/Hindernisse brauchen also nur Code, keine Dateien.
 | `M` | Ton an/aus (gespeichert) |
 | `-` / `+` | Lautstärke in 10-%-Schritten (gespeichert) |
 | Klick neben die Shop-Zeilen | Weiter zum nächsten Level |
-| Hauptmenü | `Leertaste`/`Enter`/Klick **SPIELEN** = Lauf starten, `E`/**EINSTELLUNGEN**, `P`/**PROFIL** |
-| Profil | `↑`/`↓` wählt Name/Zurück, `Enter`/Klick auf die Namenszeile = Namen eingeben, dann tippen und `Enter` = fertig (`Esc` = abbrechen), `Esc` = zurück |
+| Hauptmenü | `Leertaste`/`Enter`/Klick **SPIELEN** = Lauf starten, `E`/**EINSTELLUNGEN** |
+| Namen ändern | `N` oder Klick auf die Profilzeile im Hauptmenü, dann tippen und `Enter` = fertig (`Esc` = abbrechen) |
 | Einstellungen | `↑`/`↓` wählt Zeile, `←`/`→` (oder `-`/`+`) ändert den Wert, `Enter` schaltet/öffnet, `Esc` zurück; Klick auf `-`/`+` geht auch |
 | Steuerung (Untermenü) | `↑`/`↓` wählt, `Enter` belegt die Taste neu („Taste drücken …"), `Esc` bricht ab bzw. geht zurück; „Standard" setzt auf Leertaste/Enter |
 | Game Over | `Leertaste` = nochmal, `Esc` = Hauptmenü (Knöpfe anklickbar) |
@@ -314,8 +314,7 @@ Persistenz + Audio + SFX → Helfer (`rr`, `clamp`, `rand`) → Level-/Lebens-Lo
 
 | Zustand | Bedeutung |
 |---|---|
-| `menu` | Hauptmenü mit **SPIELEN**, **EINSTELLUNGEN** und **PROFIL**, Welt scrollt langsam im Hintergrund |
-| `profile` | Profil: Name eingeben, bester Punktestand, höchstes Level, Anzahl Läufe |
+| `menu` | Hauptmenü: Titel, Profilzeile (Name + Statistik), **SPIELEN**, **EINSTELLUNGEN**, Regeln; Welt scrollt langsam im Hintergrund |
 | `settings` | Einstellungen: Lautstärke, Musik, (nur Touch) Knopfgröße, Steuerung, Zurück |
 | `controls` | Untermenü Steuerung: Tasten für Springen und Schießen belegen, Standard, Zurück |
 | `playing` | normales Spiel; Unterzustand `game.dead = true` während der Explosionspause |
@@ -383,9 +382,20 @@ Daraus folgen die Hindernishöhen: alles bis 100 px ist einfach, `tower` (132 px
 
 ### Profil und Statistik
 
-Im Hauptmenü öffnet `P` (oder der Knopf **PROFIL**) den Profilbildschirm:
+Das Profil sitzt **direkt im Hauptmenü** – ein Kasten zwischen Titel und Knöpfen (`drawMainMenu()`):
 
-- **Name** eingeben. Dafür hängt in `index.html` ein echtes, unsichtbares Eingabefeld
+```
+ROBO RUNNER
+┌────────────────────────────────────────┐
+│ SPIELER                    ohne Namen  │   <- Zeile anklicken oder N drücken
+│        N oder Klick auf die Zeile ...  │
+│   REKORD 000123 · LEVEL 3 · LÄUFE 12   │   <- Statistikzeile
+└────────────────────────────────────────┘
+   [ SPIELEN ]        [ EINSTELLUNGEN ]
+```
+
+- **Name** eingeben über die Profilzeile (`N` oder Klick). Dafür hängt in `index.html` ein echtes,
+  unsichtbares Eingabefeld
   (`#nameInput`, in `style.css` auf 2 px mit `opacity: 0` gesetzt). `startNameEdit()` fokussiert es –
   damit öffnet sich auf dem Handy die Bildschirmtastatur, auf dem Desktop tippt man direkt.
   Während der Eingabe liest `update()` den Wert live nach `game.nameDraft` (mit blinkendem Cursor auf
@@ -393,12 +403,13 @@ Im Hauptmenü öffnet `P` (oder der Knopf **PROFIL**) den Profilbildschirm:
   Leerzeichen, `_`, `-`, Umlaute, höchstens 12 Zeichen, außen getrimmt) und speichert ihn.
   Solange das Feld fokussiert ist, schluckt der Tastatur-Handler alle Tasten außer `Enter`/`Esc` –
   so wird beim Tippen nicht gesprungen.
-- **Bester Punktestand** (bester Wert aus `roborunner.highscore`)
-- **Höchstes Level** (`saveBestLevel()` beim Levelabschluss und bei Game Over)
-- **Läufe** (hochgezählt bei `startGame(true)`, also bei Spielen/Nochmal/`R` – ein bloßer Menüwechsel
-  zählt nicht mit)
+- **Statistikzeile** unter dem Namen zeigt in einer Zeile:
+  - **REKORD** – bester Punktestand aus `roborunner.highscore`
+  - **LEVEL** – höchstes erreichtes Level (`saveBestLevel()` beim Levelabschluss und bei Game Over)
+  - **LÄUFE** – hochgezählt bei `startGame(true)`, also bei Spielen/Nochmal/`R`; ein bloßer
+    Menüwechsel zählt nicht mit
 
-Der Name erscheint danach auch im Hauptmenü (`SPIELER <Name> · REKORD <Punkte>`). Ohne Eingabefeld
+Ohne Eingabefeld
 im DOM (z. B. wenn man `game.js` allein lädt) bleibt der Bildschirm benutzbar, nur das Umbenennen
 entfällt – alle Zugriffe sind über `nameInputUsable()` abgesichert.
 
@@ -555,8 +566,12 @@ Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
   Level 5: min 848 / avg 1006 px), der Höhenrhythmus mid→ground→high durchläuft, der Bodenanteil
   bei ~32 % liegt und die Benzinbilanz bei ~58 % Sammelquote liegt; Level 1 mit sauberem Spiel in
   32 s schaffbar (90 % Restbenzin), Level 5 mit 47 %, Nur-Boden-Spieler verliert 2 Leben
-- Profil: geprüft, dass das Hauptmenü den Rekord und den Profil-Knopf zeigt, `P` das Profil öffnet,
-  Name, Punkte, Level und Läufe angezeigt werden, `Enter` das Namensfeld fokussiert (Leertaste
+- Profil im Hauptmenü: geprüft, dass kein separater Profil-Knopf mehr existiert, die Profilzeile mit
+  „SPIELER"/„ohne Namen" erscheint, Rekord/Level/Läufe korrekt angezeigt werden (`REKORD 004711`,
+  `LEVEL 3`, `LÄUFE 7`), Klick und `N` die Eingabe starten, der blinkende Cursor erscheint, die
+  Eingabe live im Menü steht, `Leertaste` dabei kein Spiel startet, der Name nach `Enter` gespeichert
+  ist, `SPIELEN` danach normal startet und Laufzähler nur echte Starts zählt
+- Profil: geprüft, dass das Hauptmenü den Rekord zeigt, Name, Punkte, Level und Läufe angezeigt werden, `Enter` das Namensfeld fokussiert (Leertaste
   springt dabei nicht), der getippte Name live erscheint, beim Abschluss bereinigt (`Max!Power 24` →
   `MaxPower 24`) und gespeichert wird, der Name danach im Menü steht (`SPIELER …`), Läufe nur bei
   echten Starts zählen, das höchste Level bei Abschluss steigt – und dass der Bildschirm auch ohne
@@ -736,6 +751,9 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 31. Profil im Hauptmenü: Namenseingabe über ein unsichtbares Eingabefeld (öffnet auf dem Handy die
     Bildschirmtastatur), Anzeige von bestem Punktestand, höchstem Level und Anzahl Läufen;
     `saveBestLevel()`, Laufzähler nur bei echten Starts, Name und Statistik in `localStorage`
+32. Profil in das Hauptmenü integriert statt eigener Bildschirm: Kasten mit Namenszeile (Taste `N`
+    oder Klick) und einer Statistikzeile (Rekord · Level · Läufe), Knöpfe SPIELEN/EINSTELLUNGEN
+    nebeneinander; Zustand `profile` und der dritte Knopf entfallen
 
 ---
 

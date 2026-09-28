@@ -324,7 +324,6 @@
     uiButtons: [],
     settingsRow: 0,
     controlsRow: 0,
-    profileRow: 0,
     fuelMax: FUEL_MAX,
     shield: 0,
     maxJumps: 2,
@@ -2186,7 +2185,7 @@
     if (game.state === "playing") {
       worldSpeed = game.speed;
     } else if (game.state === "menu" || game.state === "settings"
-      || game.state === "controls" || game.state === "profile") {
+      || game.state === "controls") {
       worldSpeed = 150;
     }
 
@@ -4602,8 +4601,6 @@
       drawSettings();
     } else if (game.state === "controls") {
       drawControls();
-    } else if (game.state === "profile") {
-      drawProfile();
     } else if (game.state === "shop") {
       drawShop();
     } else if (game.state === "over") {
@@ -4812,14 +4809,8 @@
       musicVolumeStep(id === "music+" ? 1 : -1);
     } else if (id === "buttons-" || id === "buttons+") {
       btnScaleStep(id === "buttons+" ? 1 : -1);
-    } else if (id === "profile") {
-      game.profileRow = 0;
-      game.state = "profile";
     } else if (id === "name-edit") {
-      game.profileRow = 0;
       startNameEdit();
-    } else if (id === "profile-back") {
-      goToMenu();
     } else if (id === "open-controls") {
       openControls();
     } else if (id === "controls-jump" || id === "controls-shoot") {
@@ -4833,24 +4824,61 @@
 
   function drawMainMenu() {
     var cx = VIEW_W / 2;
+    var editing = isNameEditing();
 
     ctx.fillStyle = "rgba(8, 12, 22, 0.55)";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = "800 62px Consolas, 'Courier New', monospace";
+    ctx.font = "800 54px Consolas, 'Courier New', monospace";
     ctx.fillStyle = "#eef4fb";
-    ctx.fillText("ROBO RUNNER", cx, 106);
-    ctx.font = "600 15px Consolas, 'Courier New', monospace";
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
-    ctx.fillText(game.playerName
-      ? "SPIELER " + game.playerName + "   ·   REKORD " + pad(game.highscore)
-      : "REKORD " + pad(game.highscore), cx, 150);
+    ctx.fillText("ROBO RUNNER", cx, 66);
 
-    uiButton(cx - 150, 176, 300, 58, "play", "SPIELEN", "Leertaste / Klick");
-    uiButton(cx - 150, 244, 300, 58, "settings", "EINSTELLUNGEN", "Taste E");
-    uiButton(cx - 150, 312, 300, 58, "profile", "PROFIL", "Taste P");
+    var pw = 600;
+    var px = cx - pw / 2;
+    var py = 98;
+    var ph = 100;
+
+    ctx.fillStyle = "rgba(10, 16, 28, 0.75)";
+    rr(ctx, px, py, pw, ph, 14);
+    ctx.fill();
+    ctx.strokeStyle = editing ? "rgba(70, 224, 192, 0.9)" : "rgba(255,255,255,0.16)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.font = "700 18px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.fillText("SPIELER", px + 26, py + 30);
+
+    var shown = editing ? game.nameDraft : game.playerName;
+    ctx.textAlign = "right";
+    ctx.font = "700 22px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = shown ? "#ffd166" : "rgba(255,255,255,0.35)";
+    if (editing) {
+      var caret = Math.floor(game.time * 3) % 2 === 0 ? "_" : " ";
+      ctx.fillText((shown || "") + caret, px + pw - 26, py + 30);
+    } else {
+      ctx.fillText(shown || "ohne Namen", px + pw - 26, py + 30);
+    }
+
+    ctx.textAlign = "center";
+    ctx.font = "500 12px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.42)";
+    ctx.fillText(editing ? "tippen und dann Enter" : "N oder Klick auf die Zeile = Namen ändern", cx, py + 60);
+
+    ctx.font = "600 15px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "#46e0c0";
+    ctx.fillText("REKORD " + pad(game.highscore)
+      + "   ·   LEVEL " + (game.bestLevel || 1)
+      + "   ·   LÄUFE " + game.runs, cx, py + 82);
+
+    game.uiButtons.push({ x: px + 12, y: py + 8, w: pw - 24, h: 52, id: "name-edit" });
+
+    var bw = 280;
+    uiButton(cx - bw - 10, 220, bw, 58, "play", "SPIELEN", "Leertaste / Klick");
+    uiButton(cx + 10, 220, bw, 58, "settings", "EINSTELLUNGEN", "Taste E");
 
     ctx.textAlign = "center";
     ctx.font = "500 14px Consolas, 'Courier New', monospace";
@@ -4865,88 +4893,8 @@
       lines.push("Vollbild: \"Zum Home-Bildschirm\" hinzufügen");
     }
     for (var i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i], cx, 392 + i * 24);
+      ctx.fillText(lines[i], cx, 312 + i * 24);
     }
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-  }
-
-  function drawProfile() {
-    var cx = VIEW_W / 2;
-    var w = 620;
-    var h = 344;
-    var x = cx - w / 2;
-    var y = 92;
-    var editing = isNameEditing();
-
-    ctx.fillStyle = "rgba(8, 12, 22, 0.92)";
-    rr(ctx, x, y, w, h, 20);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(70, 224, 192, 0.55)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = "800 30px Consolas, 'Courier New', monospace";
-    ctx.fillStyle = "#eef4fb";
-    ctx.fillText("PROFIL", cx, y + 44);
-
-    var nameY = y + 78;
-    var hotName = game.profileRow === 0;
-    ctx.fillStyle = hotName || editing ? "rgba(70, 224, 192, 0.14)" : "rgba(255,255,255,0.04)";
-    rr(ctx, x + 16, nameY, w - 32, 58, 10);
-    ctx.fill();
-    if (hotName || editing) {
-      ctx.strokeStyle = "rgba(70, 224, 192, 0.55)";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-
-    ctx.textAlign = "left";
-    ctx.font = "700 20px Consolas, 'Courier New', monospace";
-    ctx.fillStyle = hotName || editing ? "#eaffff" : "#cfd9e6";
-    ctx.fillText("Name", x + 34, nameY + 29);
-
-    var shown = editing ? game.nameDraft : game.playerName;
-    ctx.textAlign = "right";
-    ctx.font = "700 20px Consolas, 'Courier New', monospace";
-    ctx.fillStyle = shown ? "#ffd166" : "rgba(255,255,255,0.4)";
-    if (editing) {
-      var blink = Math.floor(game.time * 3) % 2 === 0 ? "_" : " ";
-      ctx.fillText((shown || "") + blink, x + w - 34, nameY + 28);
-    } else {
-      ctx.fillText(shown || "ohne Namen", x + w - 34, nameY + 28);
-    }
-
-    ctx.textAlign = "center";
-    ctx.font = "500 13px Consolas, 'Courier New', monospace";
-    ctx.fillStyle = "rgba(255,255,255,0.45)";
-    ctx.fillText(editing ? "tippen und dann Enter" : "Enter/Klick = Namen ändern", cx, nameY + 46);
-
-    game.uiButtons.push({ x: x + 16, y: nameY, w: w - 32, h: 58, id: "name-edit" });
-
-    var stats = [
-      { label: "Bester Punktestand", value: pad(game.highscore) },
-      { label: "Höchstes Level", value: String(game.bestLevel || 1) },
-      { label: "Läufe", value: String(game.runs) }
-    ];
-    for (var i = 0; i < stats.length; i++) {
-      var sy = y + 158 + i * 34;
-      ctx.fillStyle = "rgba(255,255,255,0.06)";
-      rr(ctx, x + 16, sy - 14, w - 32, 30, 8);
-      ctx.fill();
-      ctx.textAlign = "left";
-      ctx.font = "600 16px Consolas, 'Courier New', monospace";
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.fillText(stats[i].label, x + 32, sy + 1);
-      ctx.textAlign = "right";
-      ctx.font = "700 18px Consolas, 'Courier New', monospace";
-      ctx.fillStyle = "#46e0c0";
-      ctx.fillText(stats[i].value, x + w - 32, sy + 1);
-    }
-
-    uiButton(cx - 110, y + h - 58, 220, 46, "profile-back", "ZURÜCK", "Esc");
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
   }
@@ -5260,25 +5208,8 @@
       } else if (code === "KeyE") {
         game.settingsRow = 0;
         game.state = "settings";
-      } else if (code === "KeyP") {
-        game.profileRow = 0;
-        game.state = "profile";
-      }
-      return;
-    }
-
-    if (game.state === "profile") {
-      e.preventDefault();
-      if (code === "Escape") {
-        goToMenu();
-      } else if (isUp || isDown) {
-        game.profileRow = game.profileRow === 0 ? 1 : 0;
-      } else if (isJump || isFire) {
-        if (game.profileRow === 0) {
-          startNameEdit();
-        } else {
-          goToMenu();
-        }
+      } else if (code === "KeyN") {
+        startNameEdit();
       }
       return;
     }
