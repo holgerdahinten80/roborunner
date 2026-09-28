@@ -74,9 +74,24 @@ Roboter ausgeblendet, es gibt Blitz, Schockwellen und einen eigenen Sound, dann 
 
 | Größe | Formel / Wert |
 |---|---|
-| Länge | `15600 + (level-1) * 4200` px (Level 1 dauert ca. 32 s, Länge wächst pro Level) |
-| Starttempo | `min(940 - 140, 330 + (level-1) * 45)` px/s |
-| Tempo im Level | `min(940, startTempo + distance * 0.022)` |
+| Länge | `12600 + (level-1) * 3600` px (Level 1 dauert ca. 33 s, Länge wächst pro Level) |
+| Starttempo | `min(820 - 160, 330 + (level-1) * 40)` px/s → Level 1: 330, Level 5: 490 |
+| Tempo im Level | `min(820, startTempo + distance * 0.008) * Touch-Faktor` – steigt nur noch sanft an |
+| Touch-Faktor | auf Touchgeräten `0.85` (alles 15 % langsamer, weil Tippen unpräziser ist) |
+
+**Das Tempo steigt bewusst hauptsächlich mit der Levelnummer**, nicht mehr innerhalb eines Levels:
+
+| Level | Start | Ende | vorher (Ende) |
+|---|---|---|---|
+| 1 | 330 | 431 | 673 |
+| 2 | 370 | 500 | 726 |
+| 3 | 410 | 568 | 780 |
+| 4 | 450 | 637 | 833 |
+| 5 | 490 | 706 | 940 |
+
+Auf dem Handy zusätzlich ×0,85 (Level 1: 281 → 366 px/s, Level 5: 417 → 600 px/s). Der Verlauf
+skaliert auch die Hindernisbreiten mit, weil die Grabenbreite aus `game.speed` berechnet wird –
+die nötige Flugzeit bleibt dadurch unverändert fair.
 | Hindernis-Takt | `spawnGap() = max(0.85, 2.2 * 0.82^(level-1))` s – **rein levelbasiert**, das Tempo im Level erhöht den Druck über die kürzere Reaktionszeit |
 | Gegner-Takt | `enemyGap() = max(1.15, 2.6 * 0.85^(level-1))` s |
 | Graben-Anteil | `pitChance() = clamp(0.22 + (level-1)*0.05, 0, 0.45)` der Spawns |
@@ -336,7 +351,8 @@ werden mit +6/+10 Bonus geprüft (leichter einzusammeln als zu treffen).
 
 ```
 GRAVITY 3050 · HOLD_GRAVITY 2400 · JUMP 745 · DOUBLE_JUMP 645 · TRIPLE_JUMP 560 · JUMP_CUT 380
-COYOTE 0.1 · JUMP_BUFFER 0.13 · MAX_SPEED 940 · SPEED_RAMP 0.022
+COYOTE 0.1 · JUMP_BUFFER 0.13 · MAX_SPEED 820 · SPEED_RAMP 0.008 · SPEED_PER_LEVEL 40
+TOUCH_SPEED_FACTOR 0.85
 START_LIVES 3 · FUEL_MAX 100 · FUEL_PER_PIXEL 100/5600 · FUEL_PER_CAN 25 · RESPAWN_FUEL 45
 INVULN_TIME 1.5 · SPARE_CHANCE 0.5 · SPARE_LIFT 220
 Dichte: spawnGap 2.2*0.82^(level-1) · enemyGap 2.6*0.85^(level-1) · pitChance 0.22+(level-1)*0.05
@@ -488,8 +504,11 @@ Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
 
 - Kanister: geprüft, dass kein Paar dichter als 600 px liegt (Level 1: min 926 / avg 1082 px,
   Level 5: min 848 / avg 1006 px), der Höhenrhythmus mid→ground→high durchläuft, der Bodenanteil
-  bei ~32 % liegt und die Benzinbilanz bei 61 % Sammelquote liegt; Level 1 mit sauberem Spiel in
+  bei ~32 % liegt und die Benzinbilanz bei ~58 % Sammelquote liegt; Level 1 mit sauberem Spiel in
   32 s schaffbar (90 % Restbenzin), Level 5 mit 47 %, Nur-Boden-Spieler verliert 2 Leben
+- Tempo: für Level 1–5 Start- und Endgeschwindigkeit geprüft (Desktop 330/431 bis 490/706 px/s,
+  Touch jeweils ×0,85 also 281/366 bis 417/600), Level 1 mit sauberem Spiel in 32,9 s (Touch
+  38,8 s) beendet, Gräben auch beim neuen Tempo überspringbar (7 bzw. 6 von 23 Timings)
 - Schrott: geprüft, dass alle sechs Sorten im Verhältnis ihrer Gewichte spawnen (225 Stücke:
   bolt 70, spring 56, pipe 37, gear 35, plate 18, chip 9), alle sechs Zeichenroutinen fehlerfrei
   laufen, die Kombo in Folge 10 / 13 / 15 / 18 Punkte ergibt (x1 → x1.75), als `x1.25` im
@@ -622,7 +641,7 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     eine absteigende Melodie mit tiefem Schlusston (`noiseType` bekam dafür einen Delay-Parameter)
 23. Kanisterverteilung überarbeitet: Doppelpack entfernt (keine zwei Kanister nebeneinander mehr),
     fester Höhenrhythmus mid → ground → high, gleichmäßigerer Abstand (Welle + kleinere Basis),
-    verpasste Spawns werden wiederholt statt verworfen; Benzinbilanz bleibt bei ~61 % Sammelquote
+    verpasste Spawns werden wiederholt statt verworfen; Benzinbilanz bleibt bei ~58 % Sammelquote
 24. Tankverbrauch gesenkt: `FUEL_PER_PIXEL` von `100/4600` auf `100/5600` – ein voller Tank reicht
     jetzt 5600 px statt 4600 (+22 %), die nötige Sammelquote sinkt von 74 % auf 61 %.
     Level 1 mit sauberem Spiel 90 % Restbenzin, Level 5 47 %; wer nur Bodenkanister mitnimmt,
@@ -643,6 +662,12 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     Animation (wippendes Blech, drehendes Zahnrad, sich komprimierende Feder, blinkende LEDs),
     zufälliger Drehung und Stufen-Leuchten (Stufe 2 mit pulsierendem Ring); dazu eine Sammel-Kombo
     bis x2 innerhalb von 2,2 s, im schwebenden Text als `+13  x1.5` sichtbar
+29. Tempo entschärft und Schwierigkeit auf die Levelnummer verlagert: `SPEED_RAMP` von 0,022 auf
+    0,008, `MAX_SPEED` 940 → 820, Schritt pro Level 45 → 40 – Level 1 läuft jetzt 330 → 431 px/s
+    (vorher 330 → 673), Level 5 490 → 706 (vorher 940). Level-Länge auf `12600 + (n-1)*3600`
+    gekürzt, damit die Dauer mit ~33 s weiterhin etwa das Dreifache des Ursprungs ist.
+    Neu: `TOUCH_SPEED_FACTOR = 0.85` – auf Touchgeräten läuft alles 15 % langsamer
+    (Level 1: 281 → 366 px/s). Benzinquote dadurch ~58 % statt 61 %
 
 ---
 

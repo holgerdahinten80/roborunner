@@ -20,8 +20,10 @@
   var ROBOT_H = 60;
 
   var START_SPEED = 330;
-  var MAX_SPEED = 940;
-  var SPEED_RAMP = 0.022;
+  var MAX_SPEED = 820;
+  var SPEED_RAMP = 0.008;
+  var SPEED_PER_LEVEL = 40;
+  var TOUCH_SPEED_FACTOR = 0.85;
 
   var START_LIVES = 3;
   var FUEL_MAX = 100;
@@ -914,6 +916,10 @@
     return game.level >= 2;
   }
 
+  function speedFactor() {
+    return touchMode ? TOUCH_SPEED_FACTOR : 1;
+  }
+
   function resetRobot() {
     robot.x = ROBOT_X;
     robot.y = GROUND_Y;
@@ -1010,9 +1016,9 @@
 
   function startLevel(n) {
     game.level = n;
-    game.levelLength = 15600 + (n - 1) * 4200;
-    game.levelBaseSpeed = Math.min(MAX_SPEED - 140, START_SPEED + (n - 1) * 45);
-    game.speed = game.levelBaseSpeed;
+    game.levelLength = 12600 + (n - 1) * 3600;
+    game.levelBaseSpeed = Math.min(MAX_SPEED - 160, START_SPEED + (n - 1) * SPEED_PER_LEVEL);
+    game.speed = game.levelBaseSpeed * speedFactor();
     game.distance = 0;
     game.fuel = game.fuelMax;
     game.invuln = INVULN_TIME;
@@ -1935,7 +1941,7 @@
     }
 
     if (game.state === "playing") {
-      game.speed = Math.min(MAX_SPEED, game.levelBaseSpeed + game.distance * SPEED_RAMP);
+      game.speed = Math.min(MAX_SPEED, game.levelBaseSpeed + game.distance * SPEED_RAMP) * speedFactor();
     }
 
     var worldSpeed = 0;
