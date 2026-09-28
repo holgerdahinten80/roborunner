@@ -17,3 +17,21 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+#nameInput {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  height: 2px;
+  margin-left: -1px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  opacity: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 16px;
+  z-index: 10;
+}

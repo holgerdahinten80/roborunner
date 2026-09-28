@@ -50,7 +50,8 @@ Neue Gegner/Hindernisse brauchen also nur Code, keine Dateien.
 | `M` | Ton an/aus (gespeichert) |
 | `-` / `+` | Lautstärke in 10-%-Schritten (gespeichert) |
 | Klick neben die Shop-Zeilen | Weiter zum nächsten Level |
-| Hauptmenü | `Leertaste`/`Enter`/Klick **SPIELEN** = Lauf starten, `E`/Klick **EINSTELLUNGEN** |
+| Hauptmenü | `Leertaste`/`Enter`/Klick **SPIELEN** = Lauf starten, `E`/**EINSTELLUNGEN**, `P`/**PROFIL** |
+| Profil | `↑`/`↓` wählt Name/Zurück, `Enter`/Klick auf die Namenszeile = Namen eingeben, dann tippen und `Enter` = fertig (`Esc` = abbrechen), `Esc` = zurück |
 | Einstellungen | `↑`/`↓` wählt Zeile, `←`/`→` (oder `-`/`+`) ändert den Wert, `Enter` schaltet/öffnet, `Esc` zurück; Klick auf `-`/`+` geht auch |
 | Steuerung (Untermenü) | `↑`/`↓` wählt, `Enter` belegt die Taste neu („Taste drücken …"), `Esc` bricht ab bzw. geht zurück; „Standard" setzt auf Leertaste/Enter |
 | Game Over | `Leertaste` = nochmal, `Esc` = Hauptmenü (Knöpfe anklickbar) |
@@ -313,7 +314,8 @@ Persistenz + Audio + SFX → Helfer (`rr`, `clamp`, `rand`) → Level-/Lebens-Lo
 
 | Zustand | Bedeutung |
 |---|---|
-| `menu` | Hauptmenü mit **SPIELEN** und **EINSTELLUNGEN**, Welt scrollt langsam im Hintergrund |
+| `menu` | Hauptmenü mit **SPIELEN**, **EINSTELLUNGEN** und **PROFIL**, Welt scrollt langsam im Hintergrund |
+| `profile` | Profil: Name eingeben, bester Punktestand, höchstes Level, Anzahl Läufe |
 | `settings` | Einstellungen: Lautstärke, Musik, (nur Touch) Knopfgröße, Steuerung, Zurück |
 | `controls` | Untermenü Steuerung: Tasten für Springen und Schießen belegen, Standard, Zurück |
 | `playing` | normales Spiel; Unterzustand `game.dead = true` während der Explosionspause |
@@ -375,6 +377,30 @@ Daraus folgen die Hindernishöhen: alles bis 100 px ist einfach, `tower` (132 px
 | `roborunner.music` | Musiklautstärke 0 … 1 (Default 0,5) |
 | `roborunner.keys` | Tastenbelegung als `jump;shoot`, z. B. `Space;Enter` |
 | `roborunner.button` | Knopfgröße für Touchgeräte 0,8 … 1,4 (Default 1) |
+| `roborunner.name` | Spielername aus dem Profil (max. 12 Zeichen) |
+| `roborunner.bestLevel` | höchstes erreichtes Level |
+| `roborunner.runs` | Anzahl gestarteter Läufe |
+
+### Profil und Statistik
+
+Im Hauptmenü öffnet `P` (oder der Knopf **PROFIL**) den Profilbildschirm:
+
+- **Name** eingeben. Dafür hängt in `index.html` ein echtes, unsichtbares Eingabefeld
+  (`#nameInput`, in `style.css` auf 2 px mit `opacity: 0` gesetzt). `startNameEdit()` fokussiert es –
+  damit öffnet sich auf dem Handy die Bildschirmtastatur, auf dem Desktop tippt man direkt.
+  Während der Eingabe liest `update()` den Wert live nach `game.nameDraft` (mit blinkendem Cursor auf
+  dem Canvas); `finishNameEdit()` bereinigt den Namen (`sanitizeName()`: nur Buchstaben, Ziffern,
+  Leerzeichen, `_`, `-`, Umlaute, höchstens 12 Zeichen, außen getrimmt) und speichert ihn.
+  Solange das Feld fokussiert ist, schluckt der Tastatur-Handler alle Tasten außer `Enter`/`Esc` –
+  so wird beim Tippen nicht gesprungen.
+- **Bester Punktestand** (bester Wert aus `roborunner.highscore`)
+- **Höchstes Level** (`saveBestLevel()` beim Levelabschluss und bei Game Over)
+- **Läufe** (hochgezählt bei `startGame(true)`, also bei Spielen/Nochmal/`R` – ein bloßer Menüwechsel
+  zählt nicht mit)
+
+Der Name erscheint danach auch im Hauptmenü (`SPIELER <Name> · REKORD <Punkte>`). Ohne Eingabefeld
+im DOM (z. B. wenn man `game.js` allein lädt) bleibt der Bildschirm benutzbar, nur das Umbenennen
+entfällt – alle Zugriffe sind über `nameInputUsable()` abgesichert.
 
 ### Steuerung anpassen (Einstellungen → Steuerung)
 
@@ -529,6 +555,12 @@ Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
   Level 5: min 848 / avg 1006 px), der Höhenrhythmus mid→ground→high durchläuft, der Bodenanteil
   bei ~32 % liegt und die Benzinbilanz bei ~58 % Sammelquote liegt; Level 1 mit sauberem Spiel in
   32 s schaffbar (90 % Restbenzin), Level 5 mit 47 %, Nur-Boden-Spieler verliert 2 Leben
+- Profil: geprüft, dass das Hauptmenü den Rekord und den Profil-Knopf zeigt, `P` das Profil öffnet,
+  Name, Punkte, Level und Läufe angezeigt werden, `Enter` das Namensfeld fokussiert (Leertaste
+  springt dabei nicht), der getippte Name live erscheint, beim Abschluss bereinigt (`Max!Power 24` →
+  `MaxPower 24`) und gespeichert wird, der Name danach im Menü steht (`SPIELER …`), Läufe nur bei
+  echten Starts zählen, das höchste Level bei Abschluss steigt – und dass der Bildschirm auch ohne
+  echtes Eingabefeld im DOM benutzbar bleibt
 - Steuerung: mit Desktop- und Touch-Stub geprüft – Einstellungen zeigen auf dem Desktop 4 Zeilen,
   auf Touch 5 (mit Knopfgröße); Steuerung öffnet sich, zeigt die aktuellen Tasten als Klartext,
   nimmt eine neue Taste an (`Space;KeyK` gespeichert), lehnt reservierte Tasten (M) mit Hinweis ab,
@@ -701,6 +733,9 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
     „Taste drücken …", Tausch bei Doppelbelegung, reservierte Tasten abgelehnt, Standard-Reset,
     gespeichert als `roborunner.keys`) und eine Knopfgröße für Touchgeräte von 80 % bis 140 %
     (`roborunner.button`), die Feuer- und Pause-Knopf samt Trefferflächen skaliert
+31. Profil im Hauptmenü: Namenseingabe über ein unsichtbares Eingabefeld (öffnet auf dem Handy die
+    Bildschirmtastatur), Anzeige von bestem Punktestand, höchstem Level und Anzahl Läufen;
+    `saveBestLevel()`, Laufzähler nur bei echten Starts, Name und Statistik in `localStorage`
 
 ---
 

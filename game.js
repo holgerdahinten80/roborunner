@@ -42,6 +42,9 @@
   var VOLUME_KEY = "roborunner.volume";
   var MUSIC_KEY = "roborunner.music";
   var KEYS_KEY = "roborunner.keys";
+  var NAME_KEY = "roborunner.name";
+  var BEST_LEVEL_KEY = "roborunner.bestLevel";
+  var RUNS_KEY = "roborunner.runs";
   var BTN_KEY = "roborunner.button";
   var BTN_MIN = 0.8;
   var BTN_MAX = 1.4;
@@ -314,9 +317,14 @@
     scrapComboTimer: 0,
     scrapItems: [],
     fireHeld: false,
+    playerName: readText(NAME_KEY, ""),
+    bestLevel: readCount(BEST_LEVEL_KEY, 0),
+    runs: readCount(RUNS_KEY, 0),
+    nameDraft: "",
     uiButtons: [],
     settingsRow: 0,
     controlsRow: 0,
+    profileRow: 0,
     fuelMax: FUEL_MAX,
     shield: 0,
     maxJumps: 2,
@@ -465,9 +473,84 @@
     }
   }
 
+  function readText(key, fallback) {
+    try {
+      var raw = window.localStorage.getItem(key);
+      return raw === null || raw === undefined ? fallback : String(raw);
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function writeText(key, value) {
+    try {
+      window.localStorage.setItem(key, String(value));
+    } catch (e) {
+      /* storage nicht verfuegbar */
+    }
+  }
+
+  function readCount(key, fallback) {
+    var value = parseInt(readText(key, ""), 10);
+    return isFinite(value) && value >= 0 ? value : fallback;
+  }
+
   var keyBindings = readKeyBindings();
   var btnScale = readBtnScale();
   var listeningAction = null;
+  var nameInput = document.getElementById("nameInput");
+
+  function nameInputUsable() {
+    return nameInput && typeof nameInput.focus === "function"
+      && typeof nameInput.value === "string";
+  }
+
+  function isNameEditing() {
+    return nameInputUsable() && document.activeElement === nameInput;
+  }
+
+  function sanitizeName(raw) {
+    var text = String(raw === null || raw === undefined ? "" : raw);
+    text = text.replace(/[^A-Za-z0-9 _\-\u00c4\u00d6\u00dc\u00e4\u00f6\u00fc\u00df]/g, "");
+    text = text.replace(/^\s+/, "").replace(/\s+$/, "");
+    return text.slice(0, 12);
+  }
+
+  function startNameEdit() {
+    if (!nameInputUsable()) {
+      return;
+    }
+    nameInput.value = game.playerName;
+    nameInput.focus();
+    if (typeof nameInput.select === "function") {
+      nameInput.select();
+    }
+    game.notice = "NAME EINGEBEN";
+    game.noticeTime = 1.4;
+  }
+
+  function finishNameEdit() {
+    if (!nameInputUsable()) {
+      return;
+    }
+    var clean = sanitizeName(nameInput.value);
+    game.playerName = clean;
+    nameInput.value = clean;
+    writeText(NAME_KEY, clean);
+    if (typeof nameInput.blur === "function") {
+      nameInput.blur();
+    }
+    game.notice = clean ? "HALLO " + clean : "OHNE NAMEN";
+    game.noticeTime = 1.6;
+    sfxBuy();
+  }
+
+  function saveBestLevel(level) {
+    if (level > game.bestLevel) {
+      game.bestLevel = level;
+      writeText(BEST_LEVEL_KEY, game.bestLevel);
+    }
+  }
 
   function settingsRows() {
     var rows = ["volume", "music"];
@@ -1148,13 +1231,14 @@
   function finishDeath() {
     game.dead = false;
 
-    if (game.lives <= 0) {
-      game.state = "over";
-      musicStop();
-      sfxGameOver();
-      saveHighscore();
-      return;
-    }
+      if (game.lives <= 0) {
+        game.state = "over";
+        musicStop();
+        sfxGameOver();
+        saveBestLevel(game.level);
+        saveHighscore();
+        return;
+      }
 
     game.fuel = Math.max(game.fuel, RESPAWN_FUEL);
     game.invuln = INVULN_TIME;
@@ -1214,7 +1298,11 @@
     game.state = "playing";
   }
 
-  function startGame() {
+  function startGame(countRun) {
+    if (countRun) {
+      game.runs += 1;
+      writeText(RUNS_KEY, game.runs);
+    }
     game.time = 0;
     game.scroll = 0;
     game.score = 0;
@@ -1235,8 +1323,9 @@
     startLevel(1);
   }
 
-  function completeLevel() {
-    game.levelBonus = Math.round(game.fuel) * 2;
+    function completeLevel() {
+      saveBestLevel(game.level);
+      game.levelBonus = Math.round(game.fuel) * 2;
     game.score += game.levelBonus;
     game.state = "shop";
     game.shopLock = SHOP_LOCK_TIME;
@@ -2096,8 +2185,13 @@
     var worldSpeed = 0;
     if (game.state === "playing") {
       worldSpeed = game.speed;
-    } else if (game.state === "menu" || game.state === "settings" || game.state === "controls") {
+    } else if (game.state === "menu" || game.state === "settings"
+      || game.state === "controls" || game.state === "profile") {
       worldSpeed = 150;
+    }
+
+    if (isNameEditing()) {
+      game.nameDraft = String(nameInput.value).slice(0, 12);
     }
 
     game.scroll += worldSpeed * dt;
@@ -4508,6 +4602,8 @@
       drawSettings();
     } else if (game.state === "controls") {
       drawControls();
+    } else if (game.state === "profile") {
+      drawProfile();
     } else if (game.state === "shop") {
       drawShop();
     } else if (game.state === "over") {
@@ -4694,7 +4790,7 @@
 
   function uiAction(id) {
     if (id === "play" || id === "retry") {
-      startGame();
+      startGame(true);
     } else if (id === "settings") {
       game.settingsRow = 0;
       game.state = "settings";
@@ -4716,6 +4812,14 @@
       musicVolumeStep(id === "music+" ? 1 : -1);
     } else if (id === "buttons-" || id === "buttons+") {
       btnScaleStep(id === "buttons+" ? 1 : -1);
+    } else if (id === "profile") {
+      game.profileRow = 0;
+      game.state = "profile";
+    } else if (id === "name-edit") {
+      game.profileRow = 0;
+      startNameEdit();
+    } else if (id === "profile-back") {
+      goToMenu();
     } else if (id === "open-controls") {
       openControls();
     } else if (id === "controls-jump" || id === "controls-shoot") {
@@ -4740,10 +4844,13 @@
     ctx.fillText("ROBO RUNNER", cx, 106);
     ctx.font = "600 15px Consolas, 'Courier New', monospace";
     ctx.fillStyle = "rgba(255,255,255,0.5)";
-    ctx.fillText("REKORD " + pad(game.highscore), cx, 150);
+    ctx.fillText(game.playerName
+      ? "SPIELER " + game.playerName + "   ·   REKORD " + pad(game.highscore)
+      : "REKORD " + pad(game.highscore), cx, 150);
 
-    uiButton(cx - 150, 190, 300, 58, "play", "SPIELEN", "Leertaste / Klick");
-    uiButton(cx - 150, 260, 300, 58, "settings", "EINSTELLUNGEN", "Taste E");
+    uiButton(cx - 150, 176, 300, 58, "play", "SPIELEN", "Leertaste / Klick");
+    uiButton(cx - 150, 244, 300, 58, "settings", "EINSTELLUNGEN", "Taste E");
+    uiButton(cx - 150, 312, 300, 58, "profile", "PROFIL", "Taste P");
 
     ctx.textAlign = "center";
     ctx.font = "500 14px Consolas, 'Courier New', monospace";
@@ -4758,8 +4865,88 @@
       lines.push("Vollbild: \"Zum Home-Bildschirm\" hinzufügen");
     }
     for (var i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i], cx, 366 + i * 24);
+      ctx.fillText(lines[i], cx, 392 + i * 24);
     }
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+  }
+
+  function drawProfile() {
+    var cx = VIEW_W / 2;
+    var w = 620;
+    var h = 344;
+    var x = cx - w / 2;
+    var y = 92;
+    var editing = isNameEditing();
+
+    ctx.fillStyle = "rgba(8, 12, 22, 0.92)";
+    rr(ctx, x, y, w, h, 20);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(70, 224, 192, 0.55)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "800 30px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "#eef4fb";
+    ctx.fillText("PROFIL", cx, y + 44);
+
+    var nameY = y + 78;
+    var hotName = game.profileRow === 0;
+    ctx.fillStyle = hotName || editing ? "rgba(70, 224, 192, 0.14)" : "rgba(255,255,255,0.04)";
+    rr(ctx, x + 16, nameY, w - 32, 58, 10);
+    ctx.fill();
+    if (hotName || editing) {
+      ctx.strokeStyle = "rgba(70, 224, 192, 0.55)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    ctx.textAlign = "left";
+    ctx.font = "700 20px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = hotName || editing ? "#eaffff" : "#cfd9e6";
+    ctx.fillText("Name", x + 34, nameY + 29);
+
+    var shown = editing ? game.nameDraft : game.playerName;
+    ctx.textAlign = "right";
+    ctx.font = "700 20px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = shown ? "#ffd166" : "rgba(255,255,255,0.4)";
+    if (editing) {
+      var blink = Math.floor(game.time * 3) % 2 === 0 ? "_" : " ";
+      ctx.fillText((shown || "") + blink, x + w - 34, nameY + 28);
+    } else {
+      ctx.fillText(shown || "ohne Namen", x + w - 34, nameY + 28);
+    }
+
+    ctx.textAlign = "center";
+    ctx.font = "500 13px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillText(editing ? "tippen und dann Enter" : "Enter/Klick = Namen ändern", cx, nameY + 46);
+
+    game.uiButtons.push({ x: x + 16, y: nameY, w: w - 32, h: 58, id: "name-edit" });
+
+    var stats = [
+      { label: "Bester Punktestand", value: pad(game.highscore) },
+      { label: "Höchstes Level", value: String(game.bestLevel || 1) },
+      { label: "Läufe", value: String(game.runs) }
+    ];
+    for (var i = 0; i < stats.length; i++) {
+      var sy = y + 158 + i * 34;
+      ctx.fillStyle = "rgba(255,255,255,0.06)";
+      rr(ctx, x + 16, sy - 14, w - 32, 30, 8);
+      ctx.fill();
+      ctx.textAlign = "left";
+      ctx.font = "600 16px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.fillText(stats[i].label, x + 32, sy + 1);
+      ctx.textAlign = "right";
+      ctx.font = "700 18px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = "#46e0c0";
+      ctx.fillText(stats[i].value, x + w - 32, sy + 1);
+    }
+
+    uiButton(cx - 110, y + h - 58, 220, 46, "profile-back", "ZURÜCK", "Esc");
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
   }
@@ -4951,6 +5138,14 @@
     audioInit();
     var code = e.code;
 
+    if (isNameEditing()) {
+      if (code === "Escape" || code === "Enter" || code === "NumpadEnter") {
+        e.preventDefault();
+        finishNameEdit();
+      }
+      return;
+    }
+
     if (listeningAction) {
       e.preventDefault();
       if (code === "Escape") {
@@ -4996,7 +5191,7 @@
     }
     if (code === "KeyR") {
       e.preventDefault();
-      startGame();
+      startGame(true);
       return;
     }
 
@@ -5061,10 +5256,29 @@
     if (game.state === "menu") {
       e.preventDefault();
       if (isJump || isFire) {
-        startGame();
+        startGame(true);
       } else if (code === "KeyE") {
         game.settingsRow = 0;
         game.state = "settings";
+      } else if (code === "KeyP") {
+        game.profileRow = 0;
+        game.state = "profile";
+      }
+      return;
+    }
+
+    if (game.state === "profile") {
+      e.preventDefault();
+      if (code === "Escape") {
+        goToMenu();
+      } else if (isUp || isDown) {
+        game.profileRow = game.profileRow === 0 ? 1 : 0;
+      } else if (isJump || isFire) {
+        if (game.profileRow === 0) {
+          startNameEdit();
+        } else {
+          goToMenu();
+        }
       }
       return;
     }
@@ -5074,7 +5288,7 @@
       if (code === "Escape") {
         goToMenu();
       } else if (isJump || isFire) {
-        startGame();
+        startGame(true);
       }
       return;
     }
@@ -5139,6 +5353,12 @@
   window.addEventListener("pointerdown", function (e) {
     e.preventDefault();
     audioInit();
+
+    if (isNameEditing()) {
+      finishNameEdit();
+      return;
+    }
+
     requestFullscreen();
 
     var p = pointerToView(e);
