@@ -27,6 +27,7 @@ offene Punkte dafür stehen in Abschnitt 9.
 | `game.js` | **Das ganze Spiel**, eine IIFE mit `"use strict"`, ~4.000 Zeilen |
 | `manifest.json` | Web-App-Manifest: Vollbild-Anzeige, Icons, Name (für „Zum Home-Bildschirm") |
 | `sw.js` | Service Worker: cached die Dateien, damit es offline und installierbar läuft |
+| `scores/` (nur auf dem Pi) | Bestenlisten-Daten: je Spieler eine JSON-Datei, per nginx-WebDAV (`PUT`) beschreibbar |
 | `icon-192.png`, `icon-512.png`, `apple-touch-icon.png` | App-Icons (512/192/180 px, per PowerShell/System.Drawing erzeugt) |
 | `kilo.json` | Tool-Config: erlaubt `cscript`-Bash-Befehle ohne Rückfrage |
 | `AGENTS.md` | Regeln für Agenten (u. a. automatisch committen) |
@@ -50,7 +51,8 @@ Neue Gegner/Hindernisse brauchen also nur Code, keine Dateien.
 | `M` | Ton an/aus (gespeichert) |
 | `-` / `+` | Lautstärke in 10-%-Schritten (gespeichert) |
 | Klick neben die Shop-Zeilen | Weiter zum nächsten Level |
-| Hauptmenü | `Leertaste`/`Enter`/Klick **SPIELEN** = Lauf starten, `E`/**EINSTELLUNGEN** |
+| Hauptmenü | `Leertaste`/`Enter`/Klick **SPIELEN** = Lauf starten, `E`/**EINSTELLUNGEN**, `B`/**BESTENLISTE** |
+| Bestenliste | `B` oder Knopf **BESTENLISTE** öffnet sie, `Enter` lädt neu, `Esc` = Hauptmenü |
 | Namen ändern | `N` oder Klick auf die Profilzeile im Hauptmenü, dann tippen und `Enter` = fertig (`Esc` = abbrechen) |
 | Einstellungen | `↑`/`↓` wählt Zeile, `←`/`→` (oder `-`/`+`) ändert den Wert, `Enter` schaltet/öffnet, `Esc` zurück; Klick auf `-`/`+` geht auch |
 | Steuerung (Untermenü) | `↑`/`↓` wählt, `Enter` belegt die Taste neu („Taste drücken …"), `Esc` bricht ab bzw. geht zurück; „Standard" setzt auf Leertaste/Enter |
@@ -79,8 +81,8 @@ Roboter ausgeblendet, es gibt Blitz, Schockwellen und einen eigenen Sound, dann 
 |---|---|
 | Länge | `12600 + (level-1) * 3600` px (Level 1 dauert ca. 33 s, Länge wächst pro Level) |
 | Starttempo | `min(820 - 160, 330 + (level-1) * 40)` px/s → Level 1: 330, Level 5: 490 |
-| Tempo im Level | `min(820, startTempo + distance * 0.008) * Touch-Faktor` – steigt nur noch sanft an |
-| Touch-Faktor | auf Touchgeräten `0.85` (alles 15 % langsamer, weil Tippen unpräziser ist) |
+| Tempo im Level | `min(820, startTempo + distance * 0.008) * SPEED_FACTOR` – steigt nur noch sanft an |
+| Tempo-Faktor | überall `0.85` (`SPEED_FACTOR`, gilt am PC und am Handy) |
 
 **Das Tempo steigt bewusst hauptsächlich mit der Levelnummer**, nicht mehr innerhalb eines Levels:
 
@@ -92,7 +94,8 @@ Roboter ausgeblendet, es gibt Blitz, Schockwellen und einen eigenen Sound, dann 
 | 4 | 450 | 637 | 833 |
 | 5 | 490 | 706 | 940 |
 
-Auf dem Handy zusätzlich ×0,85 (Level 1: 281 → 366 px/s, Level 5: 417 → 600 px/s). Der Verlauf
+Auf allen Geräten zusätzlich ×0,85 (Level 1: 281 → 366 px/s, Level 5: 417 → 600 px/s; das Tempo in
+der Tabelle oben ist der Wert **vor** dem Faktor). Der Verlauf
 skaliert auch die Hindernisbreiten mit, weil die Grabenbreite aus `game.speed` berechnet wird –
 die nötige Flugzeit bleibt dadurch unverändert fair.
 | Hindernis-Takt | `spawnGap() = max(0.85, 2.2 * 0.82^(level-1))` s – **rein levelbasiert**, das Tempo im Level erhöht den Druck über die kürzere Reaktionszeit |
@@ -314,8 +317,9 @@ Persistenz + Audio + SFX → Helfer (`rr`, `clamp`, `rand`) → Level-/Lebens-Lo
 
 | Zustand | Bedeutung |
 |---|---|
-| `menu` | Hauptmenü: Profilkarte oben rechts (Avatar, Name, Statistik), Titel, **SPIELEN**, **EINSTELLUNGEN**, Regeln; Welt scrollt langsam im Hintergrund |
-| `settings` | Einstellungen: Lautstärke, Musik, (nur Touch) Knopfgröße, Steuerung, Zurück |
+| `menu` | Hauptmenü: Profilkarte oben rechts (Avatar, Name, Statistik), Titel, **SPIELEN**, **BESTENLISTE**, **EINSTELLUNGEN**, Regeln; Welt scrollt langsam im Hintergrund |
+| `board` | Bestenliste: lädt `scores/` über HTTP, zeigt Rang, Name, Punkte, Level, Läufe und Zeitpunkt; eigener Eintrag markiert |
+| `settings` | Einstellungen: Lautstärke, Musik, Knöpfe an/aus, Knopfgröße, Steuerung, Zurück |
 | `controls` | Untermenü Steuerung: Tasten für Springen und Schießen belegen, Standard, Zurück |
 | `playing` | normales Spiel; Unterzustand `game.dead = true` während der Explosionspause |
 | `paused` | Pause (Blur pausiert automatisch, Ton wird suspendiert) |
@@ -356,7 +360,7 @@ werden mit +6/+10 Bonus geprüft (leichter einzusammeln als zu treffen).
 ```
 GRAVITY 3050 · HOLD_GRAVITY 2400 · JUMP 745 · DOUBLE_JUMP 645 · TRIPLE_JUMP 560 · JUMP_CUT 380
 COYOTE 0.1 · JUMP_BUFFER 0.13 · MAX_SPEED 820 · SPEED_RAMP 0.008 · SPEED_PER_LEVEL 40
-TOUCH_SPEED_FACTOR 0.85
+SPEED_FACTOR 0.85
 START_LIVES 3 · FUEL_MAX 100 · FUEL_PER_PIXEL 100/5600 · FUEL_PER_CAN 25 · RESPAWN_FUEL 45
 INVULN_TIME 1.5 · SPARE_CHANCE 0.5 · SPARE_LIFT 220
 Dichte: spawnGap 2.2*0.82^(level-1) · enemyGap 2.6*0.85^(level-1) · pitChance 0.22+(level-1)*0.05
@@ -426,9 +430,14 @@ reservierte Tasten (`Esc`, `M`, `P`, `R`, `-`, `+`) werden mit Hinweis abgelehnt
 Leertaste/Enter immer als Bestätigung, und im Shop haben die Ziffern Vorrang vor der Sprungtaste,
 damit man dort weiterhin kaufen kann.
 
-### Knopfgröße auf Touchgeräten
+### Knöpfe und Knopfgröße
 
-Die Zeile **Knopfgröße** (nur sichtbar wenn `touchMode`) skaliert Feuer- und Pause-Knopf in
+Die Zeile **Knöpfe** (`buttonOn`, gespeichert unter `roborunner.buttonOn`) schaltet die
+Bildschirm-Knöpfe **Feuer** (unten rechts) und **Pause** (unten links, nur im laufenden Level) an oder
+aus; ohne gespeicherten Wert ist der Zustand auf Touchgeräten an und am PC aus. Am PC sind die Knöpfe
+mit der Maus klickbar, das Tippen daneben springt weiterhin.
+
+Die Zeile **Knopfgröße** skaliert beide Knöpfe in
 10-%-Schritten von 80 % bis 140 % (`btnScale`, gespeichert unter `roborunner.button`). Gezeichnet wird
 über `translate` + `scale(btnScale, btnScale)`, damit Symbol, Ring und Beschriftung zusammen wachsen;
 die Trefferflächen (Feuer-Knopf-Radius, Pause-Rechteck) nutzen denselben Faktor.
@@ -639,6 +648,10 @@ Alles unten ist per Headless-Test nachgewiesen (Tests danach wieder gelöscht):
 - Schießen: Enter feuert (Cooldown wirkt), Gegner zerstört (+32 Punkte inkl. Distanz, +1 Schrott),
   Kugel abgefangen, fliegt durch Hindernisse, hoch schwebende Drohne per Sprung+Schuss abschießbar
 - Robustheit: 29 525 Frames Realzufalls-Lauf ohne Laufzeitfehler, `save`/`restore` immer balanciert
+- Bestenliste: Verzeichnis wird als `GET scores/` geladen, Textdateien ignoriert, drei Spieler
+  sortiert (eigener Eintrag oben, „(DU)"), Spaltenköpfe, `Enter` lädt neu, Zurück-Knopf und `Esc`
+  führen ins Menü; Upload prüft Adresse (`scores/<Spieler-ID>.json`) und Inhalt (Name, Id, Rekord),
+  passiert beim Spielende automatisch, und ohne `fetch` erscheint die Fehlermeldung statt eines Absturzes
 
 Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächliche Aussehen
 (Layout, Lesbarkeit, Farbwirkung) und der Klang. Bei Grafikänderungen lohnt ein Blick im Browser.
@@ -660,8 +673,9 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 
 ## 9. Nächste sinnvolle Schritte
 
-1. **Schießen auf Touch**: Enter ist gesetzt, mobil fehlt eine zweite Geste (z. B. Tap in der
-   unteren Bildhälfte rechts = Schuss, oder ein gezeichneter Feuer-Button).
+1. **Bestenliste mit Konten** (Variante B): kleine API vor die Dateiablage setzen (Name + Passwort,
+   Token, Serverprüfung der Punkte), damit Ergebnisse nicht mehr frei überschreibbar sind; die
+   Ablage `scores/` und der Bildschirm `board` können dafür bleiben.
 2. **Munition / Wärme**: Schießen ist derzeit unbegrenzt (nur 0,26 s Cooldown) – falls es zu stark wird,
    Munition als Pickup (analog Benzin) oder Überhitzung einführen.
 3. **Shop-Erweiterung**: Schnellfeuer (kürzerer Cooldown), Doppelschuss, Gegner-Schaden-Upgrade –
@@ -669,7 +683,8 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 4. **Gegner-Varianten**: Trefferpunkte > 1 („Panzergegner“), Gegner, die Hindernisse legen,
    oder ein Zwischengegner am Levelende.
 5. **Level-Bonus**: Schrott für Restbenzin oder für unverletzt durchgespielte Level.
-6. **PWA/Verpackung** für Android/iOS (Manifest + Service Worker) – laut ursprünglichem Ziel.
+6. **App-Verpackung**: Manifest + Service Worker laufen (Abschnitt 13, auch Installation unter
+   Windows); offen wäre eine echte Store-Verpackung (TWA für Android, Capacitor für iOS).
 7. **Meta-Progression**, falls doch gewünscht: Schrott dauerhaft speichern und Upgrades zwischen Runs kaufen.
 
 ---
@@ -759,6 +774,15 @@ Nicht sinnvoll headless prüfbar und daher **nicht** verifiziert: das tatsächli
 33. Profil als Karte **oben rechts** auf der Startseite (`drawProfileCard()` + `drawAvatar()`):
     Roboter-Avatar im Kreis, Name groß, darunter REKORD und LEVEL · LÄUFE; Klick oder `N` ändert den
     Namen, Hinweis steht klein unter der Karte. Titel und Knöpfe rücken dafür nach unten
+34. PC-Parität und Kennung: `SPEED_FACTOR = 0.85` gilt jetzt auf allen Geräten, die Profilkarte zeigt
+    zusätzlich eine dauerhafte **Spieler-ID** (`roborunner.playerId`, Form `RR-XXXXXX`), die
+    Bildschirm-Knöpfe samt Größe gibt es auch am PC (neuer Schalter `roborunner.buttonOn`),
+    `Esc` führt aus den Einstellungen zurück, und `manifest.json` bekam `id` + Installationsknopf
+    (`beforeinstallprompt`) für Windows/Edge – `sw.js`-Cache auf `roborunner-v2`
+35. **Bestenliste (Variante A)**: neue Zustand `board` mit Knopf und Taste `B`, lädt `scores/` per
+    `GET` (nginx-`autoindex_format json`) und je Datei ein Spieler-JSON; hochgeladen wird beim
+    Spielende und bei jedem Level-Abschluss per `PUT scores/<Spieler-ID>.json`. Ohne Konten und ohne
+    Prüfung, eigener Eintrag hervorgehoben, offline nur eine Fehlermeldung
 
 ---
 
@@ -814,16 +838,19 @@ Das Spiel läuft öffentlich auf dem vorhandenen Heimserver (kein eigener Webser
 Internet -> Caddy (Container "caddy", Port 80/443, Let's-Encrypt-Zertifikat)
             Caddyfile: holger80.dynv6.net { reverse_proxy localhost:8080 }
          -> nginx (Container "nginx-web", Host-Port 8080)
-            Bind-Mount /media/ssd/html -> /usr/share/nginx/html
+            Bind-Mount /media/ssd/html     -> /usr/share/nginx/html
+            Bind-Mount /media/ssd/nginx    -> /etc/nginx/conf.d   (default.conf)
             Spiel liegt darin als Unterordner /spiel/
+            Bestenliste schreibt nach /spiel/scores/ (siehe Abschnitt 14)
 ```
 
 - Der Zugriff geschieht per SSH über den Host-Eintrag `rasp` (192.168.178.30, User `pi`,
   Schlüssel `~/.ssh/id_rsa`). `pi` ist in der Gruppe `docker` – **für alles hier ist kein sudo nötig**.
 - Die bestehende Startseite `/media/ssd/html/index.html` (795 KB) bleibt unberührt; das Spiel
   liegt als eigener Unterordner daneben.
-- Kein Backend, keine Datenbank, keine Anmeldung: reine statische Dateien. Damit ist die
-  Sicherheitsfläche minimal, aber auch jeder mit der Adresse kann spielen.
+- Kein Backend, keine Datenbank, keine Anmeldung: reine statische Dateien plus der eine
+  beschreibbare Ordner `spiel/scores/` für die Bestenliste (Abschnitt 14). Damit ist die
+  Sicherheitsfläche minimal, aber auch jeder mit der Adresse kann spielen und Ergebnisse eintragen.
 
 ### Update einspielen (aus `C:\Projekte\Testspiel` heraus)
 
@@ -838,8 +865,9 @@ scp -r $stage rasp:/home/pi/roborunner_stage
 
 # 2. in den nginx-Container (Bind-Mount) kopieren und Rechte setzen
 #    Wichtig: docker exec startet keine Shell, Platzhalter deshalb mit sh -c
+#    Nur Dateien anfassen - der Unterordner scores/ muss 755 bleiben (siehe Abschnitt 14)
 ssh rasp "docker cp /home/pi/roborunner_stage/. nginx-web:/usr/share/nginx/html/spiel/ ; ^
-          docker exec nginx-web sh -c 'chmod 755 /usr/share/nginx/html/spiel && chmod 644 /usr/share/nginx/html/spiel/*'"
+          docker exec nginx-web sh -c 'chmod 755 /usr/share/nginx/html/spiel && find /usr/share/nginx/html/spiel -maxdepth 1 -type f -exec chmod 644 {} +'"
 
 # 3. prüfen
 ssh rasp "curl -s -o /dev/null -w 'spiel/: %{http_code}\n' http://127.0.0.1:8080/spiel/"
@@ -869,6 +897,7 @@ Die Seite ist als installierbare Web-App eingerichtet, damit sie ohne Browserlei
 |---|---|
 | Android (Chrome) | Menü → **„App installieren"** bzw. „Zum Startbildschirm hinzufügen", oder im Spiel einfach loslegen – beim ersten Tippen wird automatisch Vollbild angefordert |
 | iPhone/iPad (Safari) | **Teilen → „Zum Home-Bildschirm"**, dann über das Icon starten (Safari kann kein Vollbild per API) |
+| Windows/macOS (Chrome, Edge) | Adressleiste rechts → **„Installieren"** (Kleines Symbol) oder Menü → „App installieren"; das Spiel legt dann eine Verknüpfung im Startmenü bzw. Launchpad an. Im Spiel erscheint dafür auf der Startseite der Knopf **ALS APP INSTALLIEREN**, sobald der Browser das Angebot meldet (`beforeinstallprompt` → `installPrompt`, Klick ruft `promptInstall()`) |
 
 Was dafür im Code steckt:
 
@@ -879,13 +908,55 @@ Was dafür im Code steckt:
   Registrierung des Service Workers (Fehler werden geschluckt).
 - `sw.js`: cached die acht Dateien; **Netzwerk zuerst**, bei fehlender Verbindung kommt die Kopie aus
   dem Cache. `CACHE`-Version erhöhen, wenn altes Verhalten hängen bleibt.
-- `game.js`: `touchMode` erkennt Touchgeräte (`ontouchstart` oder `navigator.maxTouchPoints`).
-  Nur dann erscheint der **Feuer-Knopf** unten rechts (`FIRE_BTN`, Radius 40 px), Halten feuert
-  dauerhaft über `game.fireHeld`, und beim ersten Tippen wird einmalig Vollbild angefordert
-  (`requestFullscreen` in `try/catch`, weil iOS die API nicht kennt). Auf dem Desktop ist alles
-  unverändert – kein Knopf, Tippen = Springen, `Enter` = Schuss.
+- `game.js`: `touchMode` erkennt Touchgeräte (`ontouchstart` oder `navigator.maxTouchPoints`) und
+  bestimmt nur noch den **Standard** für die Bildschirm-Knöpfe (`buttonsOn`): dort an, am PC aus und
+  in den Einstellungen umschaltbar. Ist der Schalter an, erscheint der **Feuer-Knopf** unten rechts
+  (`FIRE_BTN`, Radius 40 px), Halten feuert dauerhaft über `game.fireHeld`; beim ersten Tippen wird
+  einmalig Vollbild angefordert (`requestFullscreen` in `try/catch`, weil iOS die API nicht kennt).
+  Am PC sind dieselben Knöpfe mit der Maus klickbar, Tippen daneben springt wie immer.
 - Der Service Worker läuft nur in einem sicheren Kontext: über `https://holger80.dynv6.net/spiel/`
   ja, über `http://192.168.178.30:8080/spiel/` nicht (dort funktioniert das Spiel, aber ohne
   Offline-Cache und ohne Installationsangebot).
 
 Praktisch: Auf dem Handy quer halten, dann füllt das 16:9-Bild den Schirm fast vollständig.
+
+---
+
+## 14. Bestenliste (Variante A, ohne Konten)
+
+Jeder Spieler schreibt **seine eigene Datei** in den Webspace, gelesen wird über die
+Verzeichnisausgabe von nginx. Kein Login, keine Datenbank, keine Prüfung der Punkte.
+
+| Baustein | Umsetzung |
+|---|---|
+| Ablage | `/media/ssd/html/spiel/scores/<Spieler-ID>.json` – Modus 777 auf dem Ordner, damit der nginx-Worker (uid 101) schreiben darf |
+| Schreiben | `uploadScore()` → `PUT scores/<Spieler-ID>.json` mit `{id, name, score, level, runs, updated}`; Fehler werden geschluckt, der lokale Rekord bleibt |
+| Auslöser | Spielende (`finishDeath()` → nach `saveHighscore()`) und jeder Level-Abschluss; `score` ist immer der beste Wert (`game.highscore`), nie ein schlechterer Lauf |
+| Lesen | `boardRefresh()` → `GET scores/` liefert JSON `[{name,type,mtime,size}…]`, danach je Datei ein `GET`; maximal 40 Dateien, 12 Zeilen sichtbar |
+| Sortierung | Punkte absteigend, dann Level, dann Zeitpunkt (`sortBoard()`); eigener Eintrag per `id` oder Dateiname erkannt und mit „(DU)" markiert |
+| nginx | `location /spiel/scores/` mit `dav_methods PUT`, `create_full_put_path`, `dav_access user:rw group:rw all:r`, `client_max_body_size 4k`, `autoindex on`, `autoindex_format json` |
+| Konfigdatei | liegt auf dem Pi unter `/media/ssd/nginx/default.conf` (Bind-Mount → `/etc/nginx/conf.d`); Änderung wirkt nach `docker exec nginx-web nginx -s reload` |
+
+**Grenzen bewusst:** Punkte kommen aus dem Browser, also kann jeder mit `curl` Fantasiewerte
+schreiben; wer die Adresse kennt, kann fremde Dateien überschreiben. Für „wir sehen gegenseitig
+unsere Rekorde" reicht das. Für echte Konten (Name + Passwort, Serverprüfung) müsste eine kleine API
+davor – die Dateiablage bliebe gleich.
+
+Prüfen von außen:
+
+```powershell
+ssh rasp "curl -s https://holger80.dynv6.net/spiel/scores/"
+```
+
+Einmalige Einrichtung auf dem Pi:
+
+```powershell
+ssh rasp "mkdir -p /media/ssd/html/spiel/scores && chmod 777 /media/ssd/html/spiel/scores"
+```
+
+Wichtig beim Deploy: die Rechtezeile darf den `scores/`-Ordner nicht anfassen, sonst verliert er das
+Ausführungsrecht (`chmod 644 scores` macht ihn unbetretbar). Deshalb nur Dateien setzen:
+
+```powershell
+ssh rasp "docker exec nginx-web sh -c 'chmod 755 /usr/share/nginx/html/spiel && find /usr/share/nginx/html/spiel -maxdepth 1 -type f -exec chmod 644 {} +'"
+```

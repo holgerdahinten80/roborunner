@@ -23,7 +23,7 @@
   var MAX_SPEED = 820;
   var SPEED_RAMP = 0.008;
   var SPEED_PER_LEVEL = 40;
-  var TOUCH_SPEED_FACTOR = 0.85;
+  var SPEED_FACTOR = 0.85;
 
   var START_LIVES = 3;
   var FUEL_MAX = 100;
@@ -45,17 +45,24 @@
   var NAME_KEY = "roborunner.name";
   var BEST_LEVEL_KEY = "roborunner.bestLevel";
   var RUNS_KEY = "roborunner.runs";
+  var PLAYER_ID_KEY = "roborunner.playerId";
   var BTN_KEY = "roborunner.button";
+  var BTN_ON_KEY = "roborunner.buttonOn";
   var BTN_MIN = 0.8;
   var BTN_MAX = 1.4;
   var VOLUME_STEP = 0.1;
   var WARN_FUEL = 12;
+
+  var SCORES_DIR = "scores/";
+  var BOARD_LIMIT = 12;
+  var BOARD_MAX_FILES = 40;
 
   var touchMode = ("ontouchstart" in window)
     || (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
   var FIRE_BTN = { x: VIEW_W - 76, y: VIEW_H - 68, r: 40 };
   var PAUSE_BTN = { x: 52, y: VIEW_H - 48 };
   var fullscreenTried = false;
+  var installPrompt = null;
 
   var canvas = document.getElementById("game");
   var ctx = canvas.getContext("2d");
@@ -318,6 +325,9 @@
     scrapItems: [],
     fireHeld: false,
     playerName: readText(NAME_KEY, ""),
+    playerId: readPlayerId(),
+    boardStatus: "idle",
+    boardEntries: [],
     bestLevel: readCount(BEST_LEVEL_KEY, 0),
     runs: readCount(RUNS_KEY, 0),
     nameDraft: "",
@@ -472,6 +482,21 @@
     }
   }
 
+  function readButtonsOn() {
+    var raw = readText(BTN_ON_KEY, "");
+    if (raw === "0") {
+      return false;
+    }
+    if (raw === "1") {
+      return true;
+    }
+    return touchMode;
+  }
+
+  function writeButtonsOn(value) {
+    writeText(BTN_ON_KEY, value ? "1" : "0");
+  }
+
   function readText(key, fallback) {
     try {
       var raw = window.localStorage.getItem(key);
@@ -494,8 +519,27 @@
     return isFinite(value) && value >= 0 ? value : fallback;
   }
 
+  function createPlayerId() {
+    var alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    var out = "";
+    for (var i = 0; i < 6; i++) {
+      out += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    }
+    return "RR-" + out;
+  }
+
+  function readPlayerId() {
+    var raw = readText(PLAYER_ID_KEY, "");
+    if (!raw) {
+      raw = createPlayerId();
+      writeText(PLAYER_ID_KEY, raw);
+    }
+    return raw;
+  }
+
   var keyBindings = readKeyBindings();
   var btnScale = readBtnScale();
+  var buttonsOn = readButtonsOn();
   var listeningAction = null;
   var nameInput = document.getElementById("nameInput");
 
@@ -552,13 +596,7 @@
   }
 
   function settingsRows() {
-    var rows = ["volume", "music"];
-    if (touchMode) {
-      rows.push("buttons");
-    }
-    rows.push("controls");
-    rows.push("back");
-    return rows;
+    return ["volume", "music", "touch", "buttons", "controls", "back"];
   }
 
   function openControls() {
@@ -620,6 +658,14 @@
     game.notice = "KNOEPFE " + Math.round(btnScale * 100) + "%";
     game.noticeTime = 1.2;
     tone({ freq: 720, duration: 0.06, type: "triangle", gain: 0.1 });
+  }
+
+  function toggleButtons() {
+    buttonsOn = !buttonsOn;
+    writeButtonsOn(buttonsOn);
+    game.notice = "KNOEPFE " + (buttonsOn ? "AN" : "AUS");
+    game.noticeTime = 1.2;
+    tone({ freq: buttonsOn ? 780 : 460, duration: 0.07, type: "triangle", gain: 0.1 });
   }
 
   function resetKeyBindings() {
@@ -1148,7 +1194,7 @@
   }
 
   function speedFactor() {
-    return touchMode ? TOUCH_SPEED_FACTOR : 1;
+    return SPEED_FACTOR;
   }
 
   function resetRobot() {
@@ -1236,6 +1282,7 @@
         sfxGameOver();
         saveBestLevel(game.level);
         saveHighscore();
+        uploadScore();
         return;
       }
 
@@ -1348,6 +1395,7 @@
       game.bestThisRun = true;
       writeHighscore(game.highscore);
     }
+    uploadScore();
   }
 
   function saveHighscore() {
@@ -1356,6 +1404,143 @@
       game.bestThisRun = true;
       writeHighscore(game.highscore);
     }
+  }
+
+  function fetchSupported() {
+    return typeof window.fetch === "function";
+  }
+
+  function scoreFile() {
+    return SCORES_DIR + game.playerId + ".json";
+  }
+
+  function uploadScore() {
+    if (!fetchSupported()) {
+      return;
+    }
+    var payload = {
+      id: game.playerId,
+      name: game.playerName || "Gast",
+      score: game.highscore,
+      level: Math.max(game.bestLevel, game.level),
+      runs: game.runs,
+      updated: Math.floor((new Date()).getTime() / 1000)
+    };
+    try {
+      window.fetch(scoreFile(), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).then(function () { }, function () { });
+    } catch (e) {
+      /* offline oder kein Schreibrecht - der lokale Rekord bleibt erhalten */
+    }
+  }
+
+  function addBoardEntry(data, file) {
+    if (!data) {
+      return;
+    }
+    var score = parseInt(data.score, 10);
+    if (!isFinite(score) || score < 0) {
+      return;
+    }
+    var id = String(data.id || "");
+    var name = sanitizeName(data.name) || "Gast";
+    game.boardEntries.push({
+      id: id || String(file).replace(/\.json$/, ""),
+      name: name,
+      score: score,
+      level: Math.max(1, parseInt(data.level, 10) || 1),
+      runs: Math.max(0, parseInt(data.runs, 10) || 0),
+      updated: Math.max(0, parseInt(data.updated, 10) || 0),
+      own: (id && id === game.playerId) || String(file).indexOf(game.playerId) === 0
+    });
+  }
+
+  function sortBoard() {
+    game.boardEntries.sort(function (a, b) {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      if (b.level !== a.level) {
+        return b.level - a.level;
+      }
+      return b.updated - a.updated;
+    });
+  }
+
+  function boardFetchFile(file, done) {
+    try {
+      window.fetch(SCORES_DIR + file)
+        .then(function (res) { return res.json(); })
+        .then(function (data) { addBoardEntry(data, file); done(); }, function () { done(); });
+    } catch (e) {
+      done();
+    }
+  }
+
+  function boardRefresh() {
+    if (!fetchSupported()) {
+      game.boardStatus = "error";
+      return;
+    }
+    game.boardStatus = "loading";
+    game.boardEntries = [];
+    try {
+      window.fetch(SCORES_DIR, { headers: { Accept: "application/json" } })
+        .then(function (res) { return res.json(); })
+        .then(function (list) {
+          var files = [];
+          if (list && list.length) {
+            for (var i = 0; i < list.length && files.length < BOARD_MAX_FILES; i++) {
+              var item = list[i];
+              if (item && item.type === "file" && /\.json$/.test(String(item.name))) {
+                files.push(String(item.name));
+              }
+            }
+          }
+          if (!files.length) {
+            game.boardStatus = "empty";
+            return;
+          }
+          var pending = files.length;
+          var step = function () {
+            pending -= 1;
+            if (pending <= 0) {
+              sortBoard();
+              game.boardStatus = "ready";
+            }
+          };
+          for (var j = 0; j < files.length; j++) {
+            boardFetchFile(files[j], step);
+          }
+        }, function () {
+          game.boardStatus = "error";
+        });
+    } catch (e) {
+      game.boardStatus = "error";
+    }
+  }
+
+  function openBoard() {
+    game.boardEntries = [];
+    game.boardStatus = "idle";
+    game.state = "board";
+    boardRefresh();
+  }
+
+  function boardTime(ts) {
+    if (!ts) {
+      return "";
+    }
+    var d = new Date(ts * 1000);
+    return pad2(d.getDate()) + "." + pad2(d.getMonth() + 1) + ". "
+      + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+  }
+
+  function pad2(n) {
+    return (n < 10 ? "0" : "") + n;
   }
 
   function clearAhead() {
@@ -1989,6 +2174,25 @@
       }
     } catch (e) {
       /* iOS kennt die Fullscreen-API nicht - dort greift der Startbildschirm-Modus */
+    }
+  }
+
+  function canInstall() {
+    return !!installPrompt;
+  }
+
+  function promptInstall() {
+    if (!installPrompt) {
+      return;
+    }
+    var prompt = installPrompt;
+    installPrompt = null;
+    try {
+      if (typeof prompt.prompt === "function") {
+        prompt.prompt();
+      }
+    } catch (e) {
+      /* Browser ohne Installationsdialog */
     }
   }
 
@@ -4376,7 +4580,7 @@
 
     ctx.textAlign = "left";
 
-    if (touchMode && game.state === "playing" && !game.dead) {
+    if (buttonsOn && game.state === "playing" && !game.dead) {
       var pr = 26 * btnScale;
       game.uiButtons.push({
         x: PAUSE_BTN.x - pr,
@@ -4402,7 +4606,7 @@
       ctx.restore();
     }
 
-    if (touchMode) {
+    if (buttonsOn) {
       var readyToFire = game.shotCooldown <= 0 && game.state === "playing" && !game.dead;
       ctx.save();
       ctx.globalAlpha = readyToFire ? 0.9 : 0.4;
@@ -4594,9 +4798,109 @@
     ctx.textAlign = "left";
   }
 
+  function drawBoard() {
+    var cx = VIEW_W / 2;
+    var w = 720;
+    var h = 424;
+    var x = cx - w / 2;
+    var y = Math.max(48, VIEW_H / 2 - h / 2 - 6);
+
+    ctx.fillStyle = "rgba(8, 12, 22, 0.92)";
+    rr(ctx, x, y, w, h, 20);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(70, 224, 192, 0.55)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.font = "800 28px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "#eef4fb";
+    ctx.fillText("BESTENLISTE", x + 28, y + 38);
+
+    ctx.textAlign = "right";
+    ctx.font = "500 12px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.42)";
+    ctx.fillText("DU: " + (game.playerName || "ohne Namen") + " · " + game.playerId, x + w - 28, y + 38);
+
+    ctx.textAlign = "left";
+    ctx.font = "500 13px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillText(game.boardStatus === "loading" ? "lade Ergebnisse ..."
+      : "Bestes Ergebnis je Spieler, sortiert nach Punkten", x + 28, y + 64);
+
+    if (game.boardStatus === "ready" && game.boardEntries.length) {
+      ctx.font = "600 12px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.fillText("SPIELER", x + 70, y + 94);
+      ctx.textAlign = "right";
+      ctx.fillText("PUNKTE", x + 344, y + 94);
+      ctx.fillText("LEVEL", x + 412, y + 94);
+      ctx.fillText("LÄUFE", x + 474, y + 94);
+      ctx.fillText("ZULETZT", x + w - 28, y + 94);
+
+      var shown = Math.min(game.boardEntries.length, BOARD_LIMIT);
+      for (var i = 0; i < shown; i++) {
+        var e = game.boardEntries[i];
+        var ry = y + 118 + i * 22;
+        if (e.own) {
+          ctx.fillStyle = "rgba(70, 224, 192, 0.16)";
+          rr(ctx, x + 18, ry - 11, w - 36, 22, 8);
+          ctx.fill();
+        }
+        ctx.font = "600 14px Consolas, 'Courier New', monospace";
+        ctx.textAlign = "right";
+        ctx.fillStyle = e.own ? "#eaffff" : "rgba(255,255,255,0.5)";
+        ctx.fillText((i + 1) + ".", x + 56, ry);
+        ctx.textAlign = "left";
+        ctx.fillStyle = e.own ? "#46e0c0" : "#dfe8f2";
+        ctx.fillText(e.name + (e.own ? "  (DU)" : ""), x + 70, ry);
+        ctx.textAlign = "right";
+        ctx.font = "700 14px Consolas, 'Courier New', monospace";
+        ctx.fillStyle = "#ffd166";
+        ctx.fillText(pad(e.score), x + 344, ry);
+        ctx.font = "500 13px Consolas, 'Courier New', monospace";
+        ctx.fillStyle = "rgba(255,255,255,0.62)";
+        ctx.fillText("L" + e.level, x + 412, ry);
+        ctx.fillText(e.runs + "x", x + 474, ry);
+        ctx.fillStyle = "rgba(255,255,255,0.38)";
+        ctx.fillText(boardTime(e.updated), x + w - 28, ry);
+      }
+
+      if (game.boardEntries.length > shown) {
+        ctx.textAlign = "left";
+        ctx.font = "500 12px Consolas, 'Courier New', monospace";
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.fillText("... und " + (game.boardEntries.length - shown) + " weitere", x + 70, y + 118 + shown * 22);
+      }
+    } else {
+      ctx.textAlign = "center";
+      ctx.font = "600 16px Consolas, 'Courier New', monospace";
+      ctx.fillStyle = game.boardStatus === "error" ? "#ffa06a" : "rgba(255,255,255,0.55)";
+      var message = game.boardStatus === "error"
+        ? "Keine Verbindung - die Liste gibt es nur online"
+        : game.boardStatus === "loading" ? "lade Ergebnisse ..."
+        : "Noch keine Ergebnisse - spiel eine Runde!";
+      ctx.fillText(message, cx, y + 200);
+      ctx.textAlign = "left";
+    }
+
+    uiButton(x + 28, y + h - 54, 220, 40, "board-refresh", "AKTUALISIEREN", "Enter");
+    uiButton(x + w - 248, y + h - 54, 220, 40, "board-back", "ZURÜCK", "Esc");
+
+    ctx.textAlign = "center";
+    ctx.font = "500 12px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.fillText("Eigene Ergebnisse werden beim Spielende hochgeladen", cx, y + h - 68);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+  }
+
   function drawOverlay() {
     if (game.state === "menu") {
       drawMainMenu();
+    } else if (game.state === "board") {
+      drawBoard();
     } else if (game.state === "settings") {
       drawSettings();
     } else if (game.state === "controls") {
@@ -4791,6 +5095,12 @@
     } else if (id === "settings") {
       game.settingsRow = 0;
       game.state = "settings";
+    } else if (id === "board") {
+      openBoard();
+    } else if (id === "board-refresh") {
+      boardRefresh();
+    } else if (id === "board-back") {
+      goToMenu();
     } else if (id === "back" || id === "menu") {
       goToMenu();
     } else if (id === "resume") {
@@ -4809,6 +5119,10 @@
       musicVolumeStep(id === "music+" ? 1 : -1);
     } else if (id === "buttons-" || id === "buttons+") {
       btnScaleStep(id === "buttons+" ? 1 : -1);
+    } else if (id === "toggle-buttons") {
+      toggleButtons();
+    } else if (id === "install") {
+      promptInstall();
     } else if (id === "name-edit") {
       startNameEdit();
     } else if (id === "open-controls") {
@@ -4863,7 +5177,7 @@
 
   function drawProfileCard() {
     var w = 240;
-    var h = 118;
+    var h = 142;
     var x = VIEW_W - w - 20;
     var y = 16;
     var editing = isNameEditing();
@@ -4896,6 +5210,13 @@
     ctx.fillStyle = "rgba(255,255,255,0.5)";
     ctx.fillText("LEVEL " + (game.bestLevel || 1) + "   ·   LÄUFE " + game.runs, x + 16, y + 104);
 
+    ctx.font = "500 12px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillText("SPIELER-ID", x + 16, y + 128);
+    ctx.font = "700 13px Consolas, 'Courier New', monospace";
+    ctx.fillStyle = "#7fe6ff";
+    ctx.fillText(game.playerId, x + 100, y + 128);
+
     game.uiButtons.push({ x: x, y: y, w: w, h: h, id: "name-edit" });
 
     ctx.textAlign = "right";
@@ -4919,9 +5240,10 @@
     ctx.fillStyle = "#eef4fb";
     ctx.fillText("ROBO RUNNER", cx, 132);
 
-    var bw = 280;
-    uiButton(cx - bw - 10, 224, bw, 58, "play", "SPIELEN", "Leertaste / Klick");
-    uiButton(cx + 10, 224, bw, 58, "settings", "EINSTELLUNGEN", "Taste E");
+    var bw = 276;
+    uiButton(cx - bw * 1.5 - 20, 224, bw, 58, "play", "SPIELEN", "Leertaste / Klick");
+    uiButton(cx - bw / 2, 224, bw, 58, "board", "BESTENLISTE", "Taste B");
+    uiButton(cx + bw / 2 + 20, 224, bw, 58, "settings", "EINSTELLUNGEN", "Taste E");
 
     ctx.textAlign = "center";
     ctx.font = "500 14px Consolas, 'Courier New', monospace";
@@ -4934,10 +5256,17 @@
     if (touchMode) {
       lines[1] = "Schießen: Feuer-Knopf unten rechts - Handy quer halten";
       lines.push("Vollbild: \"Zum Home-Bildschirm\" hinzufügen");
+    } else if (buttonsOn) {
+      lines[1] = "Schießen: " + keyLabel(keyBindings.shoot) + " oder Feuer-Knopf (Maus) - Pause: P/Esc";
     }
     for (var i = 0; i < lines.length; i++) {
       ctx.fillText(lines[i], cx, 328 + i * 24);
     }
+
+    if (canInstall()) {
+      uiButton(cx - 150, 448, 300, 46, "install", "ALS APP INSTALLIEREN", "ohne Browser-Fenster");
+    }
+
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
   }
@@ -4946,7 +5275,8 @@
     var cx = VIEW_W / 2;
     var rows = settingsRows();
     var w = 620;
-    var h = 96 + rows.length * 58 + 66;
+    var pitch = 52;
+    var h = 96 + rows.length * pitch + 60;
     var x = cx - w / 2;
     var y = Math.max(54, VIEW_H / 2 - h / 2 - 8);
 
@@ -4964,18 +5294,19 @@
     ctx.fillText("EINSTELLUNGEN", cx, y + 44);
 
     for (var i = 0; i < rows.length; i++) {
-      var ry = y + 82 + i * 58;
+      var ry = y + 82 + i * pitch;
       var hot = game.settingsRow === i;
       var row = rows[i];
       if (hot) {
         ctx.strokeStyle = "rgba(70, 224, 192, 0.45)";
         ctx.lineWidth = 2;
-        rr(ctx, x + 14, ry - 6, w - 28, 56, 12);
+        rr(ctx, x + 14, ry - 6, w - 28, 48, 12);
         ctx.stroke();
       }
 
       var label = row === "volume" ? "Lautstärke"
         : row === "music" ? "Musik"
+        : row === "touch" ? "Knöpfe"
         : row === "buttons" ? "Knopfgröße"
         : row === "controls" ? "Steuerung"
         : "Zurück";
@@ -4983,7 +5314,7 @@
       ctx.textAlign = "left";
       ctx.font = "700 20px Consolas, 'Courier New', monospace";
       ctx.fillStyle = hot ? "#eaffff" : "#cfd9e6";
-      ctx.fillText(label, x + 32, ry + 22);
+      ctx.fillText(label, x + 32, ry + 18);
 
       if (row === "volume" || row === "music" || row === "buttons") {
         var value = row === "volume" ? Math.round(audio.volume * 100) + "%"
@@ -4993,12 +5324,24 @@
           : row === "music" ? music.volume <= 0
           : btnScale !== 1;
 
-        uiButton(x + w - 214, ry + 1, 44, 44, row + "-", "-");
+        uiButton(x + w - 214, ry - 4, 44, 44, row + "-", "-");
         ctx.textAlign = "center";
         ctx.font = "700 18px Consolas, 'Courier New', monospace";
         ctx.fillStyle = warn ? "#ffa06a" : "#ffd166";
-        ctx.fillText(value, x + w - 154, ry + 23);
-        uiButton(x + w - 94, ry + 1, 44, 44, row + "+", "+");
+        ctx.fillText(value, x + w - 154, ry + 18);
+        uiButton(x + w - 94, ry - 4, 44, 44, row + "+", "+");
+      } else if (row === "touch") {
+        ctx.textAlign = "right";
+        ctx.font = "700 18px Consolas, 'Courier New', monospace";
+        ctx.fillStyle = buttonsOn ? "#46e0c0" : "rgba(255,255,255,0.45)";
+        ctx.fillText(buttonsOn ? "AN" : "AUS", x + w - 32, ry + 18);
+        game.uiButtons.push({
+          x: x + 12,
+          y: ry - 6,
+          w: w - 24,
+          h: 48,
+          id: "toggle-buttons"
+        });
       } else {
         var hint = row === "controls"
           ? keyLabel(keyBindings.jump) + " / " + keyLabel(keyBindings.shoot)
@@ -5006,12 +5349,12 @@
         ctx.textAlign = "right";
         ctx.font = "700 15px Consolas, 'Courier New', monospace";
         ctx.fillStyle = row === "controls" ? "#46e0c0" : "rgba(255,255,255,0.45)";
-        ctx.fillText(hint, x + w - 32, ry + 22);
+        ctx.fillText(hint, x + w - 32, ry + 18);
         game.uiButtons.push({
           x: x + 12,
           y: ry - 6,
           w: w - 24,
-          h: 56,
+          h: 48,
           id: row === "controls" ? "open-controls" : "back"
         });
       }
@@ -5020,7 +5363,7 @@
     ctx.textAlign = "center";
     ctx.font = "500 13px Consolas, 'Courier New', monospace";
     ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.fillText("Pfeiltasten: auswählen   ·   Enter: öffnen/umschalten", cx, y + h - 52);
+    ctx.fillText("Pfeiltasten: auswählen   ·   Enter: öffnen/umschalten", cx, y + h - 34);
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
   }
@@ -5188,6 +5531,10 @@
 
     if (game.state === "settings") {
       e.preventDefault();
+      if (code === "Escape") {
+        goToMenu();
+        return;
+      }
       var rows = settingsRows();
       if (isUp) {
         game.settingsRow = (game.settingsRow + rows.length - 1) % rows.length;
@@ -5200,6 +5547,7 @@
           if (row === "volume") { audioVolumeStep(dir); }
           else if (row === "music") { musicVolumeStep(dir); }
           else if (row === "buttons") { btnScaleStep(dir); }
+          else if (row === "touch") { toggleButtons(); }
           else if (row === "controls") { openControls(); }
           else { goToMenu(); }
         } else if (row === "volume") {
@@ -5212,6 +5560,8 @@
           game.noticeTime = 1.2;
         } else if (row === "buttons") {
           btnScaleStep(1);
+        } else if (row === "touch") {
+          toggleButtons();
         } else if (row === "controls") {
           openControls();
         } else {
@@ -5244,6 +5594,16 @@
       return;
     }
 
+    if (game.state === "board") {
+      e.preventDefault();
+      if (code === "Escape") {
+        goToMenu();
+      } else if (code === "Enter" || code === "NumpadEnter" || isJump || isFire) {
+        boardRefresh();
+      }
+      return;
+    }
+
     if (game.state === "menu") {
       e.preventDefault();
       if (isJump || isFire) {
@@ -5251,6 +5611,8 @@
       } else if (code === "KeyE") {
         game.settingsRow = 0;
         game.state = "settings";
+      } else if (code === "KeyB") {
+        openBoard();
       } else if (code === "KeyN") {
         startNameEdit();
       }
@@ -5324,6 +5686,17 @@
     }
   });
 
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    installPrompt = e;
+  });
+
+  window.addEventListener("appinstalled", function () {
+    installPrompt = null;
+    game.notice = "APP INSTALLIERT";
+    game.noticeTime = 2;
+  });
+
   window.addEventListener("pointerdown", function (e) {
     e.preventDefault();
     audioInit();
@@ -5337,7 +5710,7 @@
 
     var p = pointerToView(e);
 
-    if (touchMode && game.state === "playing" && !game.dead) {
+    if (buttonsOn && game.state === "playing" && !game.dead) {
       var fr = FIRE_BTN.r * btnScale;
       var ddx = p.x - FIRE_BTN.x;
       var ddy = p.y - FIRE_BTN.y;

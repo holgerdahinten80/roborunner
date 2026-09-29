@@ -3,6 +3,7 @@
   "short_name": "Robo Runner",
   "description": "Endlos-Runner: Roboter sammelt Benzin und Schrott, springt ueber Graeben, weicht Gegnern aus und schiesst zurueck.",
   "lang": "de",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

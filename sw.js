@@ -1,4 +1,4 @@
-const CACHE = "roborunner-v1";
+const CACHE = "roborunner-v2";
 const ASSETS = [
   "./",
   "./index.html",
